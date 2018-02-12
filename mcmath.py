@@ -344,6 +344,7 @@ def area_cswt_mean(x,lats,ax=(1,2),units='deg'):
 	if (oo == rshp).all():
 		print "\'lats\' given to area_wt_mean() not of proper length for \'x\'\n"
 		return None
+	rshp = np.int64(rshp)
 	cslats = cslats.reshape(rshp)
 
 	result_arr = np.zeros(resid_shp)
