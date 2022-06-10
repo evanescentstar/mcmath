@@ -87,7 +87,12 @@ def dateplt1(t,y,add=None,yl=5,fxlim=None,fylim=None,fighold=False,nomth=True,**
 			return None
 		datediff = datemax - datemin
 		datediff = datediff / 50
-		datemin = datemin - datediff
+		puh = datemin.toordinal()
+		buh = datediff.days
+		if buh >= puh:
+			datemin = dt(1,1,1)
+		else:
+			datemin = datemin - datediff
 		datemax = datemax + datediff
 		if fighold is True:
 			plt.hold(False)
@@ -97,7 +102,7 @@ def dateplt1(t,y,add=None,yl=5,fxlim=None,fylim=None,fighold=False,nomth=True,**
 			fig = plt.figure()
 		if (fylim is not None):
 			if type(fylim) is not tuple:
-				print "option <fylim> must be a tuple"
+				print("option <fylim> must be a tuple")
 				return None
 			(ymin,ymax) = fylim
 		ax = fig.add_subplot(111,autoscale_on=False,ylim=(ymin,ymax))
@@ -164,7 +169,7 @@ def dateplt1(t,y,add=None,yl=5,fxlim=None,fylim=None,fighold=False,nomth=True,**
 
 		if (fylim is not None):
 			if type(fylim) is not tuple:
-				print "option <fylim> must be a tuple"
+				print("option <fylim> must be a tuple")
 				return None
 			(ymin,ymax) = fylim
 		if datemin.toordinal() < oldxmin:
@@ -226,7 +231,12 @@ def dateplt_m(t,y,yl=5,fxlim=None,fylim=None,ticksize=10,nomth=True,fmt='+-',**k
 
 	datediff = datemax - datemin
 	datediff = datediff / 50
-	datemin = datemin - datediff
+	puh = datemin.toordinal()
+	buh = datediff.days
+	if buh >= puh:
+		datemin = dt(1,1,1)
+	else:
+		datemin = datemin - datediff
 	datemax = datemax + datediff
 	ymin = np.nanmin(y) - 0.02 * (abs(np.nanmax(y) - np.nanmin(y)))
 	ymax = np.nanmax(y) + 0.02 * (abs(np.nanmax(y) - np.nanmin(y)))
@@ -256,7 +266,7 @@ def dateplt_m(t,y,yl=5,fxlim=None,fylim=None,ticksize=10,nomth=True,fmt='+-',**k
 
 	if (fylim is not None):
 		if type(fylim) is not tuple:
-			print "option <fylim> must be a tuple"
+			print("option <fylim> must be a tuple")
 			return None
 		(ymin,ymax) = fylim
 		plt.setp(ax,ylim=ax.set_ylim(ymin,ymax))
@@ -321,7 +331,12 @@ def dateplt_m2(t,y,yl=5,fxlim=None,fylim=None,ticksize=10,nomth=True,fmt='+-',**
 
 	datediff = datemax - datemin
 	datediff = datediff / 50
-	datemin = datemin - datediff
+	puh = datemin.toordinal()
+	buh = datediff.days
+	if buh >= puh:
+		datemin = dt(1,1,1)
+	else:
+		datemin = datemin - datediff
 	datemax = datemax + datediff
 	ymin = np.nanmin(y) - 0.02 * (abs(np.nanmax(y) - np.nanmin(y)))
 	ymax = np.nanmax(y) + 0.02 * (abs(np.nanmax(y) - np.nanmin(y)))
@@ -351,7 +366,7 @@ def dateplt_m2(t,y,yl=5,fxlim=None,fylim=None,ticksize=10,nomth=True,fmt='+-',**
 
 	if (fylim is not None):
 		if type(fylim) is not tuple:
-			print "option <fylim> must be a tuple"
+			print("option <fylim> must be a tuple")
 			return None
 		(ymin,ymax) = fylim
 		plt.setp(ax,ylim=ax.set_ylim(ymin,ymax))
@@ -515,7 +530,7 @@ def shade_coord(xin,yin,datain=None,lon0=None):
 			for i in xrange(datain.ndim):
 				y_ind.append(slice(None))
 			y_ind[ydimloc[0]] = slice(None,None,-1)
-			datain = datain[y_ind]
+			datain = datain[tuple(y_ind)]
 	yedg = edges(yin)
 	
 	# convert xin to -180:180 range; roll and addcyclic as needed to have lon0 as central lon

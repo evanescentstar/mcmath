@@ -10,7 +10,9 @@ import matplotlib.dates
 from netCDF4 import date2num,num2date
 import matplotlib as mpl
 import mcmath
-from mcmath import n2d,d2n
+from mcmath import n2d
+from mcmath import d2n
+import six  # string compat with py3
 global nc4,re,datetime,d,v,blah,tulu,xulu,yulu,zulu,tufactor,monthnum,np,sp,stats,date2num,mcmath,mpl,dt,num2date
 tulu={'hours':'hours','HRS': 'hours','hour':'hours','HOUR': 'hours','days': 'days','DAYS': 'days','day': 'days','DAY': 'days','seconds': 'seconds','SECONDS': 'seconds','second': 'seconds','SECOND': 'seconds','sec':'seconds','secs':'seconds',}
 tufactor = {'hours': (24.), 'seconds': (86400.), 'days': 1.}
@@ -95,7 +97,7 @@ class use:
 							self.cv[x.lower()] = 'tax'
 
 
-					if ((hasattr(d[x.lower()],'units')) and (mpl.is_string_like(d[x.lower()].units))):
+					if ((hasattr(d[x.lower()],'units')) and (isinstance(d[x.lower()].units, six.string_types))):
 						if (('east' in d[x.lower()].units.lower()) and ('degree' in d[x.lower()].units.lower())):
 							self.cv[x.lower()] = 'xax'
 							xx = x.lower() + '_atts'
@@ -118,7 +120,7 @@ class use:
 								else:
 									self.cv[xx][att] = getattr(d[x.lower()],att)
 							continue
-						if (('meter' in d[x.lower()].units.lower()) or ('m' is d[x.lower()].units.lower())):
+						if (('meter' in d[x.lower()].units.lower()) or ('m' in d[x.lower()].units.lower())):
 							self.cv[x.lower()] = 'zax'
 							xx = x.lower() + '_atts'
 							self.cv[xx] = {}
@@ -270,18 +272,18 @@ class use:
 			shp=self.v[x].shape
 			dim=self.v[x].dimensions
 			att=self.v[x].ncattrs()
-			print "\n%s: " % (x.upper()),
+			print("\n%s: " % (x.upper()))
 			for i in range(len(shp)):
-				print dim[i],"(%s" % shp[i],
+				print(dim[i],"(%s" % shp[i])
 				for y in self.vax[x].keys():
 					if self.vax[x][y] == dim[i]:
-						print ", %s" % (y),
+						print(", %s" % (y))
 						continue
-				print ") : ",
-			print "\n"
+				print(") : ")
+			print("\n")
 			for a in self.v[x].ncattrs():
-				print "%s: %s :: " % (a,getattr(self.v[x],a)),
-			print "\n"
+				print("%s: %s :: " % (a,getattr(self.v[x],a)))
+			print("\n")
 		return None
 
 	def shax(self):
@@ -289,11 +291,11 @@ class use:
 			if 'bnd' in x or 'edge' in x:
 				continue
 			vals = self.d[x][:]
-			print "\n%s:  [%5.2f %5.2f ... %5.2f %5.2f]" % (x,vals[0],vals[1],vals[-2],vals[-1])
+			print("\n%s:  [%5.2f %5.2f ... %5.2f %5.2f]" % (x,vals[0],vals[1],vals[-2],vals[-1]))
 			for a in self.d[x].ncattrs():
 				b = getattr(self.d[x],a)
-				print "%s: %s :: " % (a,b),
-			print "\n--------------\n"
+				print("%s: %s :: " % (a,b))
+			print("\n--------------\n")
 		return None
 
 	def __repr__(self):
@@ -406,7 +408,7 @@ class use:
 		varcall = self.varchk(vari)
 
 		if varcall is None:
-			print "\nno variable called %s\n" % (vari)
+			print("\nno variable called %s\n" % (vari))
 			return None
 
 		var1 = self.v[varcall]
@@ -467,26 +469,26 @@ class use:
 		varcall = self.varchk(vari)
 
 		if varcall is None:
-			print "\nno variable called %s\n" % (vari)
+			print("\nno variable called %s\n" % (vari))
 			return None
 		
 		var1ax = self.vax[varcall]
 		if 'tax' not in var1ax.keys():
-			print "variable %s has no time axis found by ferr\n" % (varcall)
+			print("variable %s has no time axis found by ferr\n" % (varcall))
 			return None
 		else:
 			tax = var1ax['tax']
 		tax_atts = tax + '_atts'
 		if tax_atts not in self.cv.keys():
-			print "time axis %s does not have any attrs assigned to cv dict\n" % tax
+			print("time axis %s does not have any attrs assigned to cv dict\n" % tax)
 			return None
 		if 'torg' not in self.cv[tax_atts].keys():
-			print "time axis for %s does not have a time origin attribute\n" % (varcall)
+			print("time axis for %s does not have a time origin attribute\n" % (varcall))
 			return None
 		else:
 			torg = self.cv[tax_atts]['torg']
 		if 'tunits' not in self.cv[tax_atts].keys():
-			print "time axis for %s does not have a time units attribute\n" % (varcall)
+			print("time axis for %s does not have a time units attribute\n" % (varcall))
 			return None
 		else:
 			tunits1 = self.cv[tax_atts]['tunits']
@@ -506,13 +508,13 @@ class use:
 		varcall = self.varchk(vari)
 
 		if varcall is None:
-			print "\nno variable called %s\n" % (vari)
+			print("\nno variable called %s\n" % (vari))
 			return None
 
 		if varcall in self.vax.keys():
 			var1ax = self.vax[varcall]
 			if 'tax' not in var1ax.keys():
-				print "variable %s has no time axis found by ferr\n" % (varcall)
+				print("variable %s has no time axis found by ferr\n" % (varcall))
 				return None
 			else:
 				tax = var1ax['tax']
@@ -522,15 +524,15 @@ class use:
 			if 'calendar' in self.cv[tatts].keys():
 				cal_str = self.cv[tatts]['calendar']
 			else:
-				cal_str = 'standard'
+				cal_str = 'proleptic_gregorian'
 		if varcall in self.cv.keys():
 			var_atts = varcall + '_atts'
 			if var_atts not in self.cv.keys():
-				print "info for coord_var %s not found\n" % (varcall)
+				print("info for coord_var %s not found\n" % (varcall))
 				return None
 			tvals1 = self.d[varcall][:]
 			if 'units' not in self.cv[var_atts]:
-				print "tunits info for coord_var %s not found\n" % (varcall)
+				print("tunits info for coord_var %s not found\n" % (varcall))
 				return None
 			tunits_str = self.cv[var_atts]['units']
 			if 'calendar' in self.cv[var_atts].keys():
@@ -539,7 +541,7 @@ class use:
 				cal_str = 'standard'
 		if int(tunits_str.split()[2].split('-')[0]) == 0:
 			tunits_str = tunits_str.split()[0] + ' since 0001-01-01'
-			print "NOTE: the time axis is a climatological time axis\n"
+			print("NOTE: the time axis is a climatological time axis\n")
 
 		d0001 = n2d(tvals1,units=tunits_str,cal=cal_str)
 
@@ -566,7 +568,7 @@ class use:
 		varcall = self.varchk(vari)
 
 		if varcall is None:
-			print "\nno variable called %s\n" % (vari)
+			print("\nno variable called %s\n" % (vari))
 			return None
 
 		var1 = self.v[varcall]
@@ -581,7 +583,7 @@ class use:
 				xname = var1ax['xax']
 				xvals = self.d[xname][:]
 			else:
-				print "axedges error: No x-axis for %s\n"  % (varcall)
+				print("axedges error: No x-axis for %s\n" % (varcall))
 				return None
 		if ('y' in xyzt.lower()):
 			yflag = 1
@@ -590,7 +592,7 @@ class use:
 				yvals = self.d[yname][:]
 				return None
 			else:
-				print "axedges error: No y-axis for %s\n"  % (varcall)
+				print("axedges error: No y-axis for %s\n" % (varcall))
 				return None
 		if ('z' in xyzt.lower()):
 			zflag = 1
@@ -598,7 +600,7 @@ class use:
 				zname = var1ax['zax']
 				zvals = self.d[zname][:]
 			else:
-				print "axedges error: No z-axis for %s\n"  % (varcall)
+				print("axedges error: No z-axis for %s\n" % (varcall))
 				return None
 		if ('t' in xyzt.lower()):
 			tflag = 1
@@ -613,7 +615,7 @@ class use:
 					else:
 						tvals = self.d[tname][:]
 			else:
-				print "axedges error: No t-axis for %s\n"  % (varcall)
+				print("axedges error: No t-axis for %s\n" % (varcall))
 				return None
 
 
@@ -639,13 +641,13 @@ class use:
 		varcall = self.varchk(vari)
 
 		if varcall is None:
-			print "\nno variable called %s\n" % (vari)
+			print("\nno variable called %s\n" % (vari))
 			return None
 
 		
 		var1ax = self.vax[varcall]
 		if 'tax' not in var1ax.keys():
-			print "variable %s has no time axies found by ferr\n" % (varcall)
+			print("variable %s has no time axies found by ferr\n" % (varcall))
 			return None
 		else:
 			tax = var1ax['tax']
@@ -673,7 +675,7 @@ class use:
 			tindex = np.argwhere(tvals >= tbeg_dt)[0]
 			tbegin = int(tindex)
 		else:
-			print tstr_err
+			print(tstr_err)
 			return None
 		
 		if date_re.match(tend) != None:
@@ -682,7 +684,7 @@ class use:
 			tindex = max(np.argwhere(tvals <= tend_dt))
 			tend = int(tindex)
 		else:
-			print tstr_err
+			print(tstr_err)
 			return None
 
 		return (tbegin,tend)
@@ -721,7 +723,7 @@ class use:
 		varcall = self.varchk(vari)
 
 		if varcall is None:
-			print "\nno variable called %s\n" % (vari)
+			print("\nno variable called %s\n" % (vari))
 			return None
 		
 		var1 = self.v[varcall]
@@ -749,7 +751,7 @@ class use:
 
 		if t_re.search(locstr) != None:
 			if notax:
-				print "Error: no time axis for variable \'varcall\'"
+				print("Error: no time axis for variable \'varcall\'")
 				return None
 			tvals = self.d[var1ax['tax']][:]
 			timeloc = t_re.search(locstr).group(1)
@@ -767,7 +769,7 @@ class use:
 				elif index_re.search(tbegin) != None:
 					tbegin = int(index_re.search(tbegin).group(1))
 				else:
-					print tstr_err
+					print(tstr_err)
 					return None
 
 				if date_re.match(tend) != None:
@@ -776,7 +778,7 @@ class use:
 				elif index_re.search(tend) != None:
 					tend = int(index_re.search(tend).group(1))
 				else:
-					print tstr_err
+					print(tstr_err)
 					return None
 
 				if (t1 is not None) and (t2 is not None):
@@ -806,7 +808,7 @@ class use:
 				elif index_re.search(timeloc) != None:
 					tloc = int((index_re.search(timeloc)).group(1))
 				else:
-					print tstr_err
+					print(tstr_err)
 					return None
 
 				#print 'tloc is ', tloc
@@ -814,7 +816,7 @@ class use:
 
 		if x_re.search(locstr) != None:
 			if noxax:
-				print "Error: no longitude (x) axis for variable \'varcall\'"
+				print("Error: no longitude (x) axis for variable \'varcall\'")
 				return None
 
 			xax = axs['x']
@@ -847,7 +849,7 @@ class use:
 					else:
 						xbegin = np.double(xbegin)
 				else:
-					print xstr_err
+					print(xstr_err)
 					return None
 
 				if E_re.search(xend) != None:
@@ -861,7 +863,7 @@ class use:
 					else:
 						xend = np.double(xend)
 				else:
-					print xstr_err
+					print(xstr_err)
 					return None
 
 				if xend < xbegin:
@@ -888,7 +890,7 @@ class use:
 					if xspot >= 360:
 						xspot = xspot - 360
 				else:
-				    print xstr_err
+				    print(xstr_err)
 				    return None
 				xdiff = abs(xax - xspot)
 				xloc = np.zeros(xax.shape).astype(bool)
@@ -900,7 +902,7 @@ class use:
 
 		if y_re.search(locstr) != None:
 			if noyax:
-				print "Error: no latitude axis for variable \'varcall\'"
+				print("Error: no latitude axis for variable \'varcall\'")
 				return None
 
 			yax = axs['y']
@@ -923,7 +925,7 @@ class use:
 				elif num_re.match(ybegin) != None:
 					ybegin = np.double(ybegin)
 				else:
-					print ystr_err
+					print(ystr_err)
 					return None
 
 				if N_re.search(yend) != None:
@@ -934,7 +936,7 @@ class use:
 				elif num_re.match(yend) != None:
 					yend = np.double(yend)
 				else:
-					print ystr_err
+					print(ystr_err)
 					return None
 				
 				y1 = yax >= ybegin
@@ -951,7 +953,7 @@ class use:
 				elif num_re.match(latloc) != None:
 					yspot = np.double(latloc)
 				else:
-					print ystr_err
+					print(ystr_err)
 					return None
 
 				ydiff = abs(yax - yspot)
@@ -962,7 +964,7 @@ class use:
 
 		if z_re.search(locstr) != None:
 			if nozax:
-				print "Error: no depth / height axis for variable \'varcall\'"
+				print("Error: no depth / height axis for variable \'varcall\'")
 				return None
 
 			zax = axs['z']
@@ -978,13 +980,13 @@ class use:
 				if num_re.match(zbegin) != None:
 					zbegin = np.double(zbegin)
 				else:
-					print zstr_err
+					print(zstr_err)
 					return None
 
 				if num_re.match(zend) != None:
 					zend = np.double(zend)
 				else:
-					print zstr_err
+					print(zstr_err)
 					return None
 				
 				z1 = zax >= zbegin
@@ -996,7 +998,7 @@ class use:
 				if num_re.match(deploc) != None:
 					zspot = np.double(deploc)
 				else:
-					print zstr_err
+					print(zstr_err)
 					return None
 
 				zdiff = abs(zax - zspot)
@@ -1045,7 +1047,7 @@ class use:
 		if isinstance(outdata,np.ma.MaskedArray):
 			if outdata.mask.all() == False:
 				for i in var1ax['dimord']:
-					if (i is 't') & (dtax is not None):
+					if (i == 't') & (dtax is not None):
 						setattr(outdata,i,dtax[whichloc(i)])
 					else:
 						setattr(outdata,i,axs[i][whichloc(i)])
@@ -1056,7 +1058,7 @@ class use:
 			if outdata.size > 0:
 				outdata = np.ma.MaskedArray(outdata)
 				for i in var1ax['dimord']:
-					if (i is 't') & (dtax is not None):
+					if (i == 't') & (dtax is not None):
 						setattr(outdata,i,dtax[whichloc(i)])
 					else:
 						setattr(outdata,i,axs[i][whichloc(i)])
@@ -1257,7 +1259,7 @@ def save(nfn,data,dataname,x=None,y=None,z=None,t=None,tunits=None,dtim=None,
 			if (t is not None):
 				Tsize = t.size
 				for i in cv1_keys:
-					if cv1[i] is 'tax':
+					if cv1[i] == 'tax':
 						tax1 = outf.d[i][:]
 						cmp1 = t == tax1
 						##another option: sp.special.array_equiv()
@@ -1272,7 +1274,7 @@ def save(nfn,data,dataname,x=None,y=None,z=None,t=None,tunits=None,dtim=None,
 			if (dtim is not None):
 				Tsize = dtim.size
 				for i in cv1_keys:
-					if cv1[i] is 'tax':
+					if cv1[i] == 'tax':
 						tax1 = outf.dt_vals(i)
 						cmp1 = dtim == tax1
 						if isinstance(cmp1,np.ndarray):
@@ -1321,7 +1323,7 @@ def save(nfn,data,dataname,x=None,y=None,z=None,t=None,tunits=None,dtim=None,
 		if('z' in dims):
 			if (z is not None):
 				for i in cv1_keys:
-					if cv1[i] is 'zax':
+					if cv1[i] == 'zax':
 						zax1 = outf.d[i][:]
 						cmp1 = z == zax1
 						if isinstance(cmp1,np.ndarray):
@@ -1360,7 +1362,7 @@ def save(nfn,data,dataname,x=None,y=None,z=None,t=None,tunits=None,dtim=None,
 		if 'y' in dims:
 			if (y is not None):
 				for i in cv1_keys:
-					if cv1[i] is 'yax':
+					if cv1[i] == 'yax':
 						yax1 = outf.d[i][:]
 						cmp1 = y == yax1
 						if isinstance(cmp1,np.ndarray):
@@ -1398,7 +1400,7 @@ def save(nfn,data,dataname,x=None,y=None,z=None,t=None,tunits=None,dtim=None,
 		if 'x' in dims:
 			if (x is not None):
 				for i in cv1_keys:
-					if cv1[i] is 'xax':
+					if cv1[i] == 'xax':
 						xax1 = outf.d[i][:]
 						cmp1 = x == xax1
 						if isinstance(cmp1,np.ndarray):
@@ -1438,17 +1440,17 @@ def save(nfn,data,dataname,x=None,y=None,z=None,t=None,tunits=None,dtim=None,
 
 
 	vdims = []
-	for i in xrange(len(dims)):
-		if 'x' is dims.lower()[i]:
+	for i in range(len(dims)):
+		if 'x' in dims.lower()[i]:
 			vdims.append(X)
 
-		if 'y' is dims.lower()[i]:
+		if 'y' in dims.lower()[i]:
 			vdims.append(Y)
 
-		if 'z' is dims.lower()[i]:
+		if 'z' in dims.lower()[i]:
 			vdims.append(Z)
 
-		if 't' is dims.lower()[i]:
+		if 't' in dims.lower()[i]:
 			vdims.append(T)
 
 	vdims = tuple(vdims)
@@ -1513,7 +1515,7 @@ def save(nfn,data,dataname,x=None,y=None,z=None,t=None,tunits=None,dtim=None,
 		outf.f.close()
 
 	if bool(silent) is False:
-		print "\ndata written to %s\n" % nfn
+		print("\ndata written to %s\n" % nfn)
 
 	return None
 

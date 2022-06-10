@@ -21,13 +21,13 @@ def pdoread(datlist):
 	dt1 = np.empty((0,),dtype=object)
 	pdo = np.empty((0,),dtype=np.float32)
 
-	for i in xrange(len(datlist)):
+	for i in range(len(datlist)):
 		data = datlist[i].split()
 		if len(data) < 1: continue
 		if (data[0][0].isdigit()):
 			yr = int(data[0])
 			dapp = []
-			for ll in xrange(len(data[1:])):
+			for ll in range(len(data[1:])):
 				dapp.append(dt(yr,ll+1,15))
 			dapp = np.array(dapp,dtype=object)
 			dt1 = np.append(dt1,dapp)
@@ -48,13 +48,13 @@ def yrmthread(datlist):
 	dt1 = np.empty((0,),dtype=object)
 	txt = np.empty((0,),dtype=np.float32)
 
-	for i in xrange(len(datlist)):
+	for i in range(len(datlist)):
 		data = datlist[i].split()
 		if len(data) < 1: continue
 		if (data[0][0].isdigit()):
 			yr = int(data[0])
 			dapp = []
-			for ll in xrange(len(data[1:])):
+			for ll in range(len(data[1:])):
 				dapp.append(dt(yr,ll+1,15))
 			dapp = np.array(dapp,dtype=object)
 			dt1 = np.append(dt1,dapp)
@@ -74,7 +74,7 @@ def txtread(txt1,delim=None,dtype='|S16'):
 
 	txt2 = np.empty((nr,nc),dtype=dtype)
 
-	for i in xrange(len(txt1)):
+	for i in range(len(txt1)):
 		data = txt1[i].strip().split(delim)
 		if len(data) < 1: continue
 		data = np.array(data).reshape((1,-1))
@@ -92,13 +92,13 @@ def mei_read(datlist):
 	dt1 = np.empty((0,),dtype=object)
 	txt = np.empty((0,),dtype=np.float32)
 
-	for i in xrange(len(datlist)):
+	for i in range(len(datlist)):
 		data = datlist[i].split()
 		if len(data) < 1: continue
 		if (data[0][0].isdigit()):
 			yr = int(data[0])
 			dapp = []
-			for ll in xrange(len(data[1:])):
+			for ll in range(len(data[1:])):
 				dapp.append(dt(yr,ll+1,1))
 			dapp = np.array(dapp,dtype=object)
 			dt1 = np.append(dt1,dapp)
@@ -122,7 +122,7 @@ def iodread(datlist):
 	day = day*15
 	day = np.int16(day)
 
-	for i in xrange(listsize):
+	for i in range(listsize):
 		a = datlist[i].strip()
 		b,c,d = a.split()
 		yr[i] = int(b)
@@ -145,7 +145,7 @@ def chur_ssh_read(filename):
 	ssh = np.zeros(datlen,dtype=np.float32)
 	err = np.zeros(datlen,dtype=np.float32)
 
-	for i in xrange(datlen):
+	for i in range(datlen):
 		yrtxt,sshtxt,errtxt = txtlist[i].strip().split()
 		yr1 = np.float32(yrtxt)
 		yr2 = dt(np.int16(yr1),1,1)
@@ -158,7 +158,7 @@ def chur_ssh_read(filename):
 
 
 def spanread(flist,var1,k=None):
-	"""reads a var from multiple files (different time intervals so far) and
+	"""reads a var from multiple files (for different time steps, so far) and
 	cats together the data into one array.
 
 	Parameters:\tflist -- string with wildcards for files
@@ -172,7 +172,7 @@ def spanread(flist,var1,k=None):
 
 
 	if k is None:
-		for f1 in xrange(list1.size):
+		for f1 in range(list1.size):
 			d1 = use(list1[f1],silent=1)
 			sizes.append(d1.v[var1].shape[0])
 			xshp = d1.v[var1][:].shape
@@ -188,7 +188,7 @@ def spanread(flist,var1,k=None):
 		tout = np.zeros(totsiz,dtype=np.float64)
 		start = 0
 
-		for f1 in xrange(list1.size):
+		for f1 in range(list1.size):
 			d1 = use(list1[f1],silent=1)
 			t1 = d1.getax(var1,'t')
 			v1 = d1.v[var1][:]
@@ -210,7 +210,7 @@ def spanread(flist,var1,k=None):
 			del d1
 
 	else:
-		for f1 in xrange(list1.size):
+		for f1 in range(list1.size):
 			d1 = use(list1[f1],silent=1)
 			sizes.append(d1.v[var1].shape[0])
 			xshp = d1.v[var1][:,k,:,:].shape
@@ -226,7 +226,7 @@ def spanread(flist,var1,k=None):
 		tout = np.zeros(totsiz,dtype=np.float64)
 		start = 0
 
-		for f1 in xrange(list1.size):
+		for f1 in range(list1.size):
 			d1 = use(list1[f1],silent=1)
 			t1 = d1.getax(var1,'t')
 			v1 = d1.v[var1][:,k,:,:]
@@ -260,7 +260,7 @@ def psmsl(filename,dir='/scratch/local1/u241180/data/PSMSL/rlr_annual/data/'):
 
 	yr = np.int16(blah[:,0])
 	yr1 = np.ndarray(shape=yr.shape,dtype=object)
-	for i in xrange(yr.size):
+	for i in range(yr.size):
 		yr1[i] = dt(yr[i],7,1)
 
 	msl = np.float32(blah[:,1])
@@ -280,7 +280,7 @@ def m_psmsl(filename,dir='/scratch/local1/u241180/data/PSMSL/rlr_monthly/data/',
 	mth1,yr1 = np.modf(yrmth)
 	mth2 = np.int16(mth1*12) + 1
 	dt1 = np.ndarray(shape=yr1.shape,dtype=object)
-	for i in xrange(yr1.size):
+	for i in range(yr1.size):
 		dt1[i] = dt(yr1[i],mth2[i],15)
 
 	msl = np.float32(blah[:,1])
@@ -298,7 +298,7 @@ def m_to_a_psmsl(filename,dir='/scratch/local1/u241180/data/PSMSL/rlr_monthly/da
 	
 	dt1,msl = m_psmsl(filename,dir,qc)
 	start_dt = 0
-	for i in xrange(dt1.size):
+	for i in range(dt1.size):
 		if dt1[start_dt].month == 1:
 			break
 		else:
@@ -348,6 +348,47 @@ def m_to_a_psmsl(filename,dir='/scratch/local1/u241180/data/PSMSL/rlr_monthly/da
 
 	return [dt1,msl]
 
+def ghcn_csv(filename,nline=''):
+	"""reads a csv file from the global hist clim network station data
+	usually run as:
+	dt1,tmax,tmin,tobs = mcread.ghcn_csv(filename)"""
+	import csv
+	csvfile = open('1462758.csv')
+	flines = csvfile.readlines()
+	lnum = len(flines) - 1
+	csvfile.close()
+
+	csvfile = open(filename)
+	reader = csv.DictReader(csvfile)
+	dt1 = np.ndarray(lnum,dtype=object)
+	tmax = np.ma.masked_all(lnum,dtype=np.float32)
+	tmin = np.ma.masked_all(lnum,dtype=np.float32)
+	tobs = np.ma.masked_all(lnum,dtype=np.float32)
+	i = 0
+	for row in reader:
+		dt1[i] = dt.strptime(row['DATE'],'%Y-%m-%d')
+
+		if row['TMAX'] == '':
+			pass
+		else:
+			tmax[i] = np.float32(row['TMAX'])
+
+		if row['TMIN'] == '':
+			pass
+		else:
+			tmin[i] = np.float32(row['TMIN'])
+
+		if row['TOBS'] == '':
+			pass
+		else:
+			tobs[i] = np.float32(row['TOBS'])
+		i = i + 1
+	print("%d\n" % i)
+		
+	return dt1,tmax,tmin,tobs
+	
+
+
 
 
 ### May not need this function... but may yet.
@@ -361,7 +402,7 @@ def m_to_a_psmsl(filename,dir='/scratch/local1/u241180/data/PSMSL/rlr_monthly/da
 ##	list1 = np.sort(blah)
 ##	sizes = []
 
-##	for f1 in xrange(list1.size):
+##	for f1 in range(list1.size):
 ##		d1 = use(list1[f1],silent=1)
 ##		sizes.append(d1.d['time'].size)
 ##		xshp = d1.v[var1][:].shape
@@ -377,7 +418,7 @@ def m_to_a_psmsl(filename,dir='/scratch/local1/u241180/data/PSMSL/rlr_monthly/da
 ##	tout = np.zeros(totsiz,dtype=np.float64)
 ##	start = 0
 
-##	for f1 in xrange(list1.size):
+##	for f1 in range(list1.size):
 ##		d1 = use(list1[f1],silent=1)
 ##		t1 = d1.d['time'][:]
 ##		v1 = d1.v[var1][:]
