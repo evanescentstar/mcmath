@@ -2073,7 +2073,11 @@ def invZr(Zrin):
     r = (np.exp(2*Zrin) - 1) / (np.exp(2*Zrin) + 1)
     return r
 
-def logress1(x1, x2, y):
+def rs1():
+    """"simple random state generator"""
+    return np.int32((sp.rand()) * (10 ** 8.6))
+
+def logress1(X, y):
     from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
     from sklearn.linear_model import LogisticRegression
