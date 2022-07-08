@@ -2076,29 +2076,3 @@ def invZr(Zrin):
 def rs1():
     """"simple random state generator"""
     return np.int32((sp.rand()) * (10 ** 8.6))
-
-def logress1(X, y):
-    from sklearn.model_selection import train_test_split
-    from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
-    from sklearn.linear_model import LogisticRegression
-    from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, balanced_accuracy_score, recall_score
-
-    if np.unique(y).size > 2:
-        ### using LabelEncoder()
-        lab1 = LabelEncoder()
-        y4 = lab1.fit_transform(y)
-        y = y4.copy()
-
-    X_train0, X_test0, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=rs1())
-
-    sc = StandardScaler()
-    X_train = sc.fit_transform(X_train0)
-    X_test = sc.transform(X_test0)
-
-    classifier = LogisticRegression(random_state=rs1())
-    classifier.fit(X_train, y_train)
-
-    y_pred = classifier.predict(X_test)
-    yp0 = classifier.predict(X_train)
-
-    return(X_train, X_test, y_train, y_test, sc, classifier, y_pred, yp0)
