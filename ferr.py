@@ -5,6 +5,7 @@ from datetime import datetime as dt
 import numpy as np
 import scipy as sp
 import os
+import sys
 import scipy.stats as stats
 import matplotlib.dates
 from netCDF4 import date2num,num2date
@@ -1136,7 +1137,11 @@ def save(nfn,data,dataname,x=None,y=None,z=None,t=None,tunits=None,dtim=None,
 	if append is False:
 		if os.path.isfile(nfn) == True:
 			ques_str = "output file \'%s\' exists.  Delete? (y/n): " % nfn
-			ans = raw_input(ques_str)
+			ans = None
+			if sys.version_info.major > 2:
+				ans = input(ques_str)
+			else:
+				ans = raw_input(ques_str)
 			if 'y' in ans.lower():
 				os.remove(nfn)
 
@@ -1520,113 +1525,3 @@ def save(nfn,data,dataname,x=None,y=None,z=None,t=None,tunits=None,dtim=None,
 	return None
 
 #### end of save
-
-##################################
-## mpi_save
-##################################
-
-
-def mpi_save(nfn,data,datname,dtim,dtbnds=None):
-	"""Save NETCDF file of 'data' which uses the MPI MILLENNIUM lat/lon
-	coordinates.  Must pass the time axis as well, in an array of
-	datetime objects.
-	Input: 'nfn' - new filename
-		'data' - the 3-d or 4-d data (either t,y,x or t,z,y,x)
-		'datname' - data variable name
-		'dtim' - array of date time objects for the T-axis
-	"""
-	if (data.ndim > 4) | (data.ndim < 3):
-		raise FerrError("data array is not 3-d or 4-d")
-
-	if (data.shape[0] != dtim.size):
-		raise FerrError("input time array is of different size than first dim of input data")
-	
-	dfile = nc4.Dataset(nfn,'w',clobber=True,format='NETCDF4')
-	
-	clon,clat,clon_crnr,clat_crnr = mcp.mpi_grid()
-	y1,x1 = clon.shape
-	
-	dfile.createDimension('time',dtim.size)
-	dfile.createDimension('x',x1)
-	dfile.createDimension('y',y1)
-	dfile.createDimension('nv4',4)
-
-	if dtbnds is not None:
-		dfile.createDimension('bnds',2)
-
-	time_var = dfile.createVariable('time','d',('time',))
-	time_var.long_name = 'Time'
-	time_var.units = 'days since 0001-01-01 00:00:00'
-	time_var.axis = 'T'
-	time_var.calendar = 'proleptic_gregorian'
-	time_var[:] = mcmath.d2n(dtim)
-
-	if dtbnds is not None:
-		time_var.bounds = 'time_bnds'
-		tbnds_var = dfile.createVariable('time_bnds','d',('time','bnds'))
-		tbnds_var.units = 'days since 0001-01-01 00:00:00'
-		tbnds_var.calendar = 'proleptic_gregorian'
-		tbnds_var[:] = mcmath.d2n(dtbnds)
-		
-	lon_var = dfile.createVariable('lon','d',('y','x'))
-	lon_var.long_name = 'longitude'
-	lon_var.units = 'degrees'
-	lon_var._CoordinateAxisType = 'Lon'
-	lon_var.bounds = 'lon_bnds'
-	lon_var[:] = clon
-
-	lat_var = dfile.createVariable('lat','d',('y','x'))
-	lat_var.long_name = 'latitude'
-	lat_var.units = 'degrees'
-	lat_var._CoordinateAxisType = 'Lat'
-	lat_var.bounds = 'lat_bnds'
-	lat_var[:] = clat
-
-	lonbnds_var = dfile.createVariable('lon_bnds','d',('y','x','nv4'))
-	lonbnds_var[:] = clon_crnr
-
-	latbnds_var = dfile.createVariable('lat_bnds','d',('y','x','nv4'))
-	latbnds_var[:] = clat_crnr
-
-	if data.ndim == 4:
-		dfile.createDimension('z',40)
-		depth_var = dfile.createVariable('z','d',('z',))
-		depth_var.axis = 'Z'
-		depth_var.long_name = 'Depth'
-		depth_var.positive = 'down'
-		depth_var.point_spacing = 'uneven'
-		depth_var.units = 'm'
-		depth_var[:] = np.array([    6.,    17.,    27.,    37.,    47.,    57.,    69.,    83.,
-		100.,   123.,   150.,   183.,   220.,   263.,   310.,   363.,
-		420.,   485.,   560.,   645.,   740.,   845.,   960.,  1085.,
-		1220.,  1365.,  1525.,  1700.,  1885.,  2080.,  2290.,  2525.,
-		2785.,  3070.,  3395.,  3770.,  4195.,  4670.,  5170.,  5720.])
-
-		if isinstance(data,np.ma.MaskedArray):
-			data_var = dfile.createVariable(datname,'f',('time','z','y','x'),fill_value=data.fill_value)
-			data_var.missing_value = data.fill_value
-			data[data.mask] = data.fill_value
-		else:
-			data_var = dfile.createVariable(datname,'f',('time','z','y','x'))
-		data_var.long_name = datname
-		
-		data_var[:] = data
-	else:
-		if isinstance(data,np.ma.MaskedArray):
-			data_var = dfile.createVariable(datname,'f',('time','y','x'),fill_value=data.fill_value)
-			data_var.missing_value = data.fill_value
-			data[data.mask] = data.fill_value
-		else:
-			data_var = dfile.createVariable(datname,'f',('time','y','x'))
-		data_var.long_name = datname
-		
-		data_var[:] = data
-
-	dfile.sync()
-	dfile.close()
-
-	return None
-
-
-#### end of mpi_save
-

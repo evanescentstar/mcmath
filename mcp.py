@@ -15,10 +15,10 @@ from mcmath import n2d,d2n
 global plt,date2num,num2date,n2d,d2n
 
 class NoVarError(Exception):
-    def __init__(self,valus):
-        self.value = valus
-    def __str__(self):
-        return repr(self.value)
+	def __init__(self,valus):
+		self.value = valus
+	def __str__(self):
+		return repr(self.value)
 
 class MCPlotError(Exception):
 	def __init__(self,valus):
@@ -584,10 +584,10 @@ def shade(xin,yin,valsin,proj='cyl',lon0=None,res='c',blat=30,lat0=None,fz=(11.6
 	grids.  Placement of colorbars in multi-panel figures has proven to be a big problem, and more
 	parameters now exist to try to manage this better in multiple circumstances.
 	Params: xin - longtitude array of data (1-d)
-	        yin - latitude array of data (1-d)
+			yin - latitude array of data (1-d)
 		valsin - data to shade
 		proj - projection to employ,
-		       currently only the following are enabled: cyl, moll, cass, tmerc, npl, spl, laea, robin
+			   currently only the following are enabled: cyl, moll, cass, tmerc, npl, spl, laea, robin
 		lon0 - central longitude meridian for plot
 		res - same as in Basemap
 		blat - bounding latitude for polar projections: npl,spl
@@ -600,12 +600,12 @@ def shade(xin,yin,valsin,proj='cyl',lon0=None,res='c',blat=30,lat0=None,fz=(11.6
 		sx - spacer for colorbar (fraction of current figure 'x-axis' to draw colorbar from edge of last map
 
 		hatch - use the built-in (new as of 1.2.0) hatching keyword arg; called using the symbol desired
-		        e.g., hatch='x'
+				e.g., hatch='x'
 		hatch1 - use my hatching scheme which makes smaller hatching marks (just dots at the moment)
-		         using this argument requires passing a 2-tuple, with the desired density of dots first,
-		         and the desired size second; a suggested first attempt is "hatch1=(5,0.3)"
+				 using this argument requires passing a 2-tuple, with the desired density of dots first,
+				 and the desired size second; a suggested first attempt is "hatch1=(5,0.3)"
 		hatchmask - required for either of the two hatching methods; needs to be a MaskedArray,
-		            and not just a mask (not just a boolean array)
+					and not just a mask (not just a boolean array)
 			"""
 	from mpl_toolkits.basemap import Basemap, shiftgrid, addcyclic
 	from mcmath import edges
@@ -644,7 +644,7 @@ def shade(xin,yin,valsin,proj='cyl',lon0=None,res='c',blat=30,lat0=None,fz=(11.6
 		if (lat0 is None):
 			raise MCPlotError("central latitude not specified")
 		m1 = Basemap(width=wid,height=ht,resolution=res,projection='laea',\
-            lat_ts=lat0,lat_0=lat0,lon_0=lon0)
+			lat_ts=lat0,lat_0=lat0,lon_0=lon0)
 	else:
 		m1 = Basemap(projection=proj,llcrnrlat=yout[0],llcrnrlon=xout[0],
 					 urcrnrlat=yout[-1],urcrnrlon=xout[-1],resolution=res)
@@ -791,10 +791,10 @@ def contourf(xin,yin,valsin,proj='cyl',lon0=None,res='c',blat=30,lat0=None,fz=(1
 	grids.  Placement of colorbars in multi-panel figures has proven to be a big problem, and more
 	parameters now exist to try to manage this better in multiple circumstances.
 	Params: xin - longtitude array of data (1-d)
-	        yin - latitude array of data (1-d)
+			yin - latitude array of data (1-d)
 		valsin - data to shade
 		proj - projection to employ,
-		       currently only the following are enabled: cyl, moll, cass, tmerc, npl, spl, laea, robin
+			   currently only the following are enabled: cyl, moll, cass, tmerc, npl, spl, laea, robin
 		lon0 - central longitude meridian for plot
 		res - same as in Basemap
 		blat - bounding latitude for polar projections: npl,spl
@@ -807,12 +807,12 @@ def contourf(xin,yin,valsin,proj='cyl',lon0=None,res='c',blat=30,lat0=None,fz=(1
 		sx - spacer for colorbar (fraction of current figure 'x-axis' to draw colorbar from edge of last map
 
 		hatch - use the built-in (new as of 1.2.0) hatching keyword arg; called using the symbol desired
-		        e.g., hatch='x'
+				e.g., hatch='x'
 		hatch1 - use my hatching scheme which makes smaller hatching marks (just dots at the moment)
-		         using this argument requires passing a 2-tuple, with the desired density of dots first,
-		         and the desired size second; a suggested first attempt is "hatch1=(5,0.3)"
+				 using this argument requires passing a 2-tuple, with the desired density of dots first,
+				 and the desired size second; a suggested first attempt is "hatch1=(5,0.3)"
 		hatchmask - required for either of the two hatching methods; needs to be a MaskedArray,
-		            and not just a mask (not just a boolean array)
+					and not just a mask (not just a boolean array)
 			"""
 	from mpl_toolkits.basemap import Basemap, shiftgrid, addcyclic
 	from mcmath import edges
@@ -851,7 +851,7 @@ def contourf(xin,yin,valsin,proj='cyl',lon0=None,res='c',blat=30,lat0=None,fz=(1
 		if (lat0 is None):
 			raise MCPlotError("central latitude not specified")
 		m1 = Basemap(width=wid,height=ht,resolution=res,projection='laea',\
-            lat_ts=lat0,lat_0=lat0,lon_0=lon0)
+			lat_ts=lat0,lat_0=lat0,lon_0=lon0)
 	else:
 		m1 = Basemap(projection=proj,llcrnrlat=yout[0],llcrnrlon=xout[0],
 					 urcrnrlat=yout[-1],urcrnrlon=xout[-1],resolution=res)
@@ -955,10 +955,10 @@ def cvshade(clon,clat,valsin,proj='cyl',lon0=215,res='c',blat=30,fz=(11.6,5.8),a
 	grids.  Placement of colorbars in multi-panel figures has proven to be a big problem, and more
 	parameters now exist to try to manage this better in multiple circumstances.
 	Params: xin - longtitude array of data (1-d)
-	        yin - latitude array of data (1-d)
+			yin - latitude array of data (1-d)
 		valsin - data to shade
 		proj - projection to employ,
-		       currently only the following are enabled: cyl, moll, npl, spl, laea, robin
+			   currently only the following are enabled: cyl, moll, npl, spl, laea, robin
 		lon0 - central longitude meridian for plot
 		res - same as in Basemap
 		blat - bounding latitude for polar projections: npl,spl
@@ -968,11 +968,11 @@ def cvshade(clon,clat,valsin,proj='cyl',lon0=215,res='c',blat=30,fz=(11.6,5.8),a
 		nocb - don't auto-add a colorbar
 
 		land1 - does a continent fill for the map instead of plotting/shading a land mask like 'landmask':
-		        None by default
+				None by default
 		land2 - does a background fill for named color; background color by default
-		        if None, no fill is done for the map boundary at all, nor for continents
+				if None, no fill is done for the map boundary at all, nor for continents
 		hatchmask - required for either of the two hatching methods; needs to be a MaskedArray,
-		            and not just a mask (not just a boolean array)
+					and not just a mask (not just a boolean array)
 			"""
 
 

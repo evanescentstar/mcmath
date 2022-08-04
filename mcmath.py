@@ -16,10 +16,8 @@ from netCDF4 import num2date as nn2d
 from matplotlib.dates import num2date as mpln2d
 from matplotlib.dates import date2num as mpld2n
 
-
 global R_earth
 R_earth = 6371000.  # in meters
-
 
 class MCMathError(Exception):
     def __init__(self, valus):
@@ -28,9 +26,7 @@ class MCMathError(Exception):
     def __str__(self):
         return repr(self.value)
 
-
 global plt
-
 
 def acorr_mc(x, ret_intts=False):
     """An \'mcmath\' module version of this function

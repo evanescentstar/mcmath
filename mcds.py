@@ -11,7 +11,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mcmath import rs1
 
-def logress1(X, y):
+def logress1(X, y, multi_class='auto', solver='lbfgs'):
     from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
     from sklearn.linear_model import LogisticRegression
@@ -29,7 +29,7 @@ def logress1(X, y):
     X_train = sc.fit_transform(X_train0)
     X_test = sc.transform(X_test0)
 
-    classifier = LogisticRegression(random_state=rs1())
+    classifier = LogisticRegression(multi_class=multi_class, solver=solver, random_state=rs1())
     classifier.fit(X_train, y_train)
 
     y_pred = classifier.predict(X_test)
@@ -58,7 +58,7 @@ def dectreeclass1(X, y):
 
     return (X_train, X_test, y_train, y_test, sc, classifier, y_pred, yp0)
 
-def svmclass1(X, y,kernel='rbf', prob=False, dfs='ovr'):
+def svmclass1(X, y, kernel='rbf', prob=False, dfs='ovr'):
     from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
     from sklearn.svm import SVC
