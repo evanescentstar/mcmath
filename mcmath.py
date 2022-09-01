@@ -113,19 +113,27 @@ def acorr_mskd(x, ret_intts=False):
 ##		return R
 
 
-def blockave(x, blk, ax=0):
+def blockave(x, blk, ax=0, weights=None):
     """Calculate a block average of ndarray 'x', i.e., average every 'blk' number of
     elements of 'x', along axis 'ax', together and return to a new array.  Output array
     axis 'ax' length is the integer length axis-length / blk (i.e., any remaining
     elements at end of the axis which are less than 'blk' in number are discarded).
+    Now includes weights which can be applied to the input data, which it must be a
+    single dimension of the same size as 'x' along 'ax'.
     """
 
     xshp = np.array(x.shape)
     newshp = xshp.copy()
     tshp = xshp[ax] / blk
+    if weights is not None:
+        if (weights.size / blk) != tshp:
+            raise Exception('weights shape do not match input shape\'s averaging axis')
     newshp[ax] = tshp
     oneshp = xshp.copy()
     oneshp[ax] = 1  # this is to be the 'reshape' shape for the mean output
+    if weights is not None:
+        wghtshp = np.ones(xshp.shape, dtype=np.int32)
+        wghtshp[ax] = -1  # this is to be the 'reshape' shape for the weights
     out = np.ma.masked_all(shape=newshp, dtype=x.dtype)
 
     ## build slicer (list of object dim slices)
@@ -137,7 +145,11 @@ def blockave(x, blk, ax=0):
         x_s = tuple(s1)  # x slice tuple
         s1[ax] = slice(i, i + 1)
         out_s = tuple(s1)  # out slice tuple
-        out[out_s] = x[x_s].mean(axis=ax).reshape(tuple(oneshp))
+        if weights is not None:
+            out[out_s] = (x[x_s] * weights[x_s[ax]].reshape(tuple(wghtshp))).sum(axis=ax).reshape(tuple(oneshp)) / \
+                         weights[x_s[ax]].sum().reshape(tuple(wghtshp))
+        else:
+            out[out_s] = x[x_s].mean(axis=ax).reshape(tuple(oneshp))
 
     return out
 
