@@ -1065,9 +1065,9 @@ def make_clim(data, ax=0, stride=12):
             else:
                 slicer.append(slice(None))
 
-        binned = data[slicer]
+        binned = data[tuple(slicer)]
         slicer[ax] = j
-        clim[slicer] = binned.mean(axis=ax)
+        clim[tuple(slicer)] = binned.mean(axis=ax)
 
     return clim
 
@@ -1086,9 +1086,9 @@ def partial_sum_clim(data, ax=0, stride=12):
             else:
                 slicer.append(slice(None))
 
-        binned = data[slicer]
+        binned = data[tuple(slicer)]
         slicer[ax] = j
-        clim[slicer] = binned.sum(axis=ax)
+        clim[tuple(slicer)] = binned.sum(axis=ax)
 
     return clim
 
@@ -1096,7 +1096,7 @@ def partial_sum_clim(data, ax=0, stride=12):
 def anom_from_clim(data, clim):
     tlength = clim.shape[0]
     dlength = data.shape[0]
-    tax_clim = dlength / tlength + 1
+    tax_clim = dlength // tlength + 1
 
     if data.ndim == 1:
         newclim = np.tile(clim, tax_clim)
@@ -1603,7 +1603,7 @@ def alph_est(x, RNest, Nsub):
         Nsub = 5
         print("subsample size too small for MPK; changed to 5")
 
-    if (Nsub < 3) & (RNest is 'IPN4'):
+    if (Nsub < 3) & (RNest == 'IPN4'):
         Nsub = 3
         print("subsample size too small for IPN4; changed to 3")
 
@@ -1617,9 +1617,9 @@ def alph_est(x, RNest, Nsub):
         ss[i] = OLSAR1(x[i:i + Nsub])
 
     est1 = np.median(ss)
-    if RNest is 'MPK':
+    if RNest == 'MPK':
         alpha = MPK(est1, Nsub)
-    elif RNest is 'IPN4':
+    elif RNest == 'IPN4':
         alpha = ipn4(est1, Nsub)
     else:
         alpha = est1
