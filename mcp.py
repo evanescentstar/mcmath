@@ -10,6 +10,8 @@ import matplotlib.pylab as pylab
 import mcmath
 from matplotlib.pylab import date2num,num2date
 from mcmath import n2d,d2n
+import cartopy
+from cartopy import crs
 #from mpl_toolkits.basemap import interp as bminterp
 
 global plt,date2num,num2date,n2d,d2n
@@ -515,7 +517,12 @@ def figtitle(s):
 ####
 ######## BEGIN shade_coord
 
-def shade_coord(xin,yin,datain=None,lon0=None):
+def oshade_coord(xin,yin,datain=None,lon0=None):
+	"""An older version of shade_coord for use with oshade(),
+	the older version of shade().  Somewhat for 'internal use',
+	but can also be used in a script to generate x, y coords that
+	wrap properly around the globe, even in polar regions. Does not
+	do any coord transformation between projections."""
 	from mpl_toolkits.basemap import Basemap, shiftgrid, addcyclic
 	from mcmath import edges
 
@@ -574,12 +581,238 @@ def shade_coord(xin,yin,datain=None,lon0=None):
 ######## END shade_coord
 ####
 
-
 ####
 ######## BEGIN shade
 
-def shade(xin,yin,valsin,proj='cyl',lon0=None,res='c',blat=30,lat0=None,fz=(11.6,5.8),add=None,cbticksize=None,cbticks=None,nocb=None,ex=None,sx=None,xe=None,cllw=1.0,cbnds=None,cbext='both',hatch=None,hatch1=None,hatchmask=None,wid=None,ht=None,**kwargs):
-	"""An increasingly complicated function for generating decent graphs of shaded contour plots
+def shade(xin, yin, valsin, proj='merc', lon0=None, res='auto', blat=30, lat0=None, xybnds=None, fz=(11.6, 5.8), add=None,
+		   cbticksize=None, cbticks=None, nocb=None, ex=None, sx=None, xe=None, cllw=1.0, cbnds=None, cbext='both',
+		   hatch=None, hatch1=None, hatchmask=None, wid=None, ht=None, **kwargs):
+	"""	An increasingly complicated function for generating decent graphs of shaded contour plots
+	on the surface of the earth.  This version is really only designed to work with rectilinear
+	grids.  Placement of colorbars in multi-panel figures has proven to be a big problem, and more
+	parameters now exist to try to manage this better in multiple circumstances.
+	Params: xin - longtitude array of data (1-d)
+			yin - latitude array of data (1-d)
+		valsin - data to shade
+		proj - projection to employ,
+			   currently only the following are enabled: merc
+		lon0 - central longitude meridian for plot
+		res - coastlines resolution ('auto', '110m', '50m', '10m')
+		blat - bounding latitude for polar projections: npl,spl
+		fz - tuple for figure size
+		add - add the shade plot to current axes instead of making a new figure
+		cbticksize, cbticks - self-explanatory, hopefully
+		nocb - don't auto-add a colorbar
+		COLORBAR management:
+		ex - end of x-interval in which to create a colorbar (colorbar should not step over this (0,1)-axis value)
+		sx - spacer for colorbar (fraction of current figure 'x-axis' to draw colorbar from edge of last map
+
+		hatch - use the built-in (new as of 1.2.0) hatching keyword arg; called using the symbol desired
+				e.g., hatch='x'
+		hatch1 - use my hatching scheme which makes smaller hatching marks (just dots at the moment)
+				 using this argument requires passing a 2-tuple, with the desired density of dots first,
+				 and the desired size second; a suggested first attempt is "hatch1=(5,0.3)"
+		hatchmask - required for either of the two hatching methods; needs to be a MaskedArray,
+					and not just a mask (not just a boolean array)
+			"""
+	from mcmath import edges
+
+
+	if lon0 is None:
+		lon0 = (xin.max() + xin.min())/2.
+
+	xmin = xin.min()
+	xmax = xin.max()
+	ymin = yin.min()
+	ymax = yin.max()
+
+	cpc = crs.PlateCarree()
+
+	## I may plan an offset from the data at some point using something like this (mc, 24-mar-23)
+	# if someflag is not None:
+		# xextent = xin.max() - xin.min()
+		# xquart = 0.25*xextent
+		# xmin = xin.min() - xquart
+		# xmax = xin.max() + xquart
+
+	if proj == 'moll':
+		m1 = Basemap(projection=proj, lon_0=lon0, resolution=res)
+	elif proj == 'robin':
+		m1 = Basemap(projection=proj, lon_0=lon0, resolution=res)
+	##	elif proj == 'eck4':
+	##		m1 = Basemap(projection=proj,lon_0=xedg[0],resolution=res)
+	elif proj == 'cyl':
+		m1 = Basemap(projection=proj, llcrnrlat=yout[0], llcrnrlon=xout[0],
+					 urcrnrlat=yout[-1], urcrnrlon=xout[-1], resolution=res)
+	elif proj == 'cass':
+		m1 = Basemap(llcrnrlat=yout[0], llcrnrlon=xout[0], urcrnrlat=yout[-1],
+					 urcrnrlon=xout[-1], resolution=res, projection=proj,
+					 lon_0=(xedg[0] + xedg[-1]) / 2, lat_0=(yedg[0] + yedg[-1]) / 2)
+	elif proj == 'tmerc':
+		m1 = Basemap(llcrnrlat=yout[0], llcrnrlon=xout[0], urcrnrlat=yout[-1],
+					 urcrnrlon=xout[-1], resolution=res, projection=proj,
+					 lon_0=(xout[0] + xout[-1]) / 2, lat_0=(yout[0] + yout[-1]) / 2)
+	elif proj == 'merc':
+		crs1 = crs.Mercator(central_longitude=lon0,min_latitude=ymin, max_latitude=ymax)
+		setext = True
+	elif proj == 'npl':
+		m1 = Basemap(projection='nplaea', boundinglat=blat, lon_0=lon0, resolution=res)
+	elif proj == 'spl':
+		m1 = Basemap(projection='splaea', boundinglat=blat, lon_0=lon0, resolution=res)
+	elif proj == 'laea':
+		if (lat0 is None):
+			raise MCPlotError("central latitude not specified")
+		m1 = Basemap(width=wid, height=ht, resolution=res, projection='laea', \
+					 lat_ts=lat0, lat_0=lat0, lon_0=lon0)
+	else:
+		m1 = Basemap(projection=proj, llcrnrlat=yout[0], llcrnrlon=xout[0],
+					 urcrnrlat=yout[-1], urcrnrlon=xout[-1], resolution=res)
+
+	## FIX: there is a problem with the splaea projection when one of the
+	## returned latitudes from shade_coord is +90 deg (North).  Then the
+	## Basemap object (here, m1) returns for some longitude map projection
+	## coords 1e30.  To fix this, I scrap the last row of yedg if it's +90 (only for splaea).
+	if proj == 'spl':
+		if yedg[-1] == 90.:
+			yedg = yedg[:-1]
+			dataout = dataout[:-1]
+
+	## FIX: Not a serious problem, but for moll and robin projections
+	## the shade polygons overwrite parts of the map boundary.  This chunk
+	## of code helps to offset the polygons from the edges just a little.
+	## It may still be helpful after running shade() to use m1.drawmapboundary(linewidth=2)
+	## to help strengthen the edge, should that be needed.
+	if (proj == 'moll') | (proj == 'robin'):
+		xf = 0.1  # dummy def. for spacing variable
+		xspan = xedg[-1] - xedg[0]
+		xinc = xedg[3] - xedg[2]
+		if xinc < xspan * 0.0012:
+			xf = xinc * 0.4
+		else:
+			xf = xspan * 0.0006
+		if xedg[0] == xedg[1]:
+			xedg[0] = xedg[0] + xf
+			xedg[1] = xedg[1] + xf * 1.5
+		else:
+			xedg[0] = xedg[0] + xf
+
+		if xedg[-1] == xedg[-2]:
+			xedg[-1] = xedg[-1] - xf
+			xedg[-2] = xedg[-2] - xf * 1.5
+		else:
+			xedg[-1] = xedg[-1] - xf
+
+	if proj in ['merc','tmerc','UTM']:
+		xyzn = crs1.transform_points(cpc, x=xin, y=yin)
+		xn = xyzn[:, :, 0]
+		yn = xyzn[:, :, 1]
+
+	if add is None:
+		fig = plt.figure(figsize=fz)
+		ax1 = fig.add_axes((0.05, 0.05, 0.8, 0.9), projection=crs1)
+	else:
+		fig = plt.gcf()
+		ax1 = plt.gca()
+
+	if setext is True:
+		if xybnds is not None:
+			pass
+			#tbd
+		else:
+			ax1.set_extent([xmin,xmax,ymin,ymax])
+
+	ax1.coastlines(resolution=res)
+
+	cs = ax1.pcolormesh(xn, yn, valsin, **kwargs)
+
+	plt.draw()
+
+	if not bool(nocb):
+		if add is None:
+			bbox1 = ax1.get_position()
+			endx = bbox1.get_points()[1, 0]
+			endy = bbox1.get_points()[1, 1]
+			begy = bbox1.get_points()[0, 1]
+			yext = endy - begy
+			xleft = 1 - endx
+			xspacer = 0.15 * xleft
+			xext = 0.83 * xleft
+			ax2 = fig.add_axes((endx + xspacer, 0.1, 0.02, 0.8), autoscale_on=False)
+			if cbticks is None:
+				if cbnds is None:
+					plt.colorbar(cax=ax2, ax=ax1, extend=cbext)
+				else:
+					plt.colorbar(cax=ax2, ax=ax1, extend=cbext, boundaries=cbnds)
+			else:
+				if cbnds is None:
+					plt.colorbar(cax=ax2, ax=ax1, extend=cbext, ticks=cbticks)
+				else:
+					plt.colorbar(cax=ax2, ax=ax1, extend=cbext, ticks=cbticks, boundaries=cbnds)
+		else:
+			bbox1 = plt.gca().get_position()
+			endx = bbox1.get_points()[1, 0]
+			endy = bbox1.get_points()[1, 1]
+			begy = bbox1.get_points()[0, 1]
+			yext = endy - begy
+			if ex is not None:
+				xleft = ex - endx
+			else:
+				xleft = 1 - endx
+			if sx is not None:
+				xspacer = sx
+			else:
+				xspacer = 0.15 * xleft
+			if xe is not None:
+				xext = xe
+			else:
+				xext = 0.83 * xleft
+			if xext > (0.08 * yext):
+				xext = 0.08 * yext
+
+			ax2 = fig.add_axes((endx + xspacer, begy, xext, yext), autoscale_on=False)
+			if cbticks is None:
+				if cbnds is None:
+					plt.colorbar(cax=ax2, ax=ax1, extend=cbext)
+				else:
+					plt.colorbar(cax=ax2, ax=ax1, extend=cbext, boundaries=cbnds)
+			else:
+				if cbnds is None:
+					plt.colorbar(cax=ax2, ax=ax1, extend=cbext, ticks=cbticks)
+				else:
+					plt.colorbar(cax=ax2, ax=ax1, extend=cbext, ticks=cbticks, boundaries=cbnds)
+		if cbticksize is not None:
+			ytl = ax2.get_yticklabels()
+			plt.setp(ytl, 'size', cbticksize)
+
+	plt.sca(ax1)
+	# if (hatch is not None) & (hatchmask is not None):
+	# 	xedg, yedg, hatchout, xout, yout = shade_coord(xin, yin, hatchmask, lon0)
+	# 	(x, y) = m1(*np.meshgrid(xedg[:-1], yedg[:-1]))
+	# 	m1.contourf(x, y, hatchout, hatches=hatch, alpha=0.0, color='white')
+	#
+	# if (hatch1 is not None) & (hatchmask is not None):
+	# 	xedg, yedg, hatchout, xout, yout = shade_coord(xin, yin, hatchmask, lon0)
+	# 	(x, y) = m1(*np.meshgrid(xedg, yedg))
+	# 	density = hatch1[0]
+	# 	a2 = hatchout * hatch1[1]
+	# 	(x, y) = m1(*np.meshgrid(xout, yout))
+	# 	m1.scatter(x[::density, ::density], y[::density, ::density], a2[::density, ::density], ax=ax1, marker=',')
+
+	return m1, cs
+
+
+##	return m1
+
+######## END shade
+####
+
+
+####
+######## BEGIN oshade
+
+def oshade(xin,yin,valsin,proj='cyl',lon0=None,res='c',blat=30,lat0=None,fz=(11.6,5.8),add=None,cbticksize=None,cbticks=None,nocb=None,ex=None,sx=None,xe=None,cllw=1.0,cbnds=None,cbext='both',hatch=None,hatch1=None,hatchmask=None,wid=None,ht=None,**kwargs):
+	"""'oshade', as in 'old shade' - an older Basemap version of 'shade' [cf. mcp.shade()]
+	An increasingly complicated function for generating decent graphs of shaded contour plots
 	on the surface of the earth.  This version is really only designed to work with rectilinear
 	grids.  Placement of colorbars in multi-panel figures has proven to be a big problem, and more
 	parameters now exist to try to manage this better in multiple circumstances.
@@ -772,7 +1005,7 @@ def shade(xin,yin,valsin,proj='cyl',lon0=None,res='c',blat=30,lat0=None,fz=(11.6
 
 ##	return m1
 
-######## END shade
+######## END oshade
 ####
 
 
@@ -948,12 +1181,15 @@ def contourf(xin,yin,valsin,proj='cyl',lon0=None,res='c',blat=30,lat0=None,fz=(1
 ####
 ######## BEGIN cvshade
 
-def cvshade(clon,clat,valsin,proj='cyl',lon0=215,res='c',blat=30,fz=(11.6,5.8),add=None,cbticksize=12,cbticks=None,nocb=None,vlo=None,vhi=None,lat0=None,wid=12000000,ht=8000000,land1=None,land2='blank',landmask=None,landdark=None,hatchmask=None,hatchalpha=None,**kwargs):
+def ocvshade(clon,clat,valsin,proj='cyl',lon0=215,res='c',blat=30,fz=(11.6,5.8),add=None,cbticksize=12,cbticks=None,nocb=None,vlo=None,vhi=None,lat0=None,wid=12000000,ht=8000000,land1=None,land2='blank',landmask=None,landdark=None,hatchmask=None,hatchalpha=None,**kwargs):
 
-	"""An increasingly complicated function for generating decent graphs of shaded contour plots
-	on the surface of the earth.  This version is really only designed to work with rectilinear
-	grids.  Placement of colorbars in multi-panel figures has proven to be a big problem, and more
-	parameters now exist to try to manage this better in multiple circumstances.
+	"""'ocvshade', as in 'old cvshade' - an older Basemap version of oshade() for curvilinear coords
+	An increasingly complicated function for generating decent graphs of shaded contour plots
+	on the surface of the earth.  This version is designed to work with curvilinear
+	grids, but most specifically the MPI-ESM-* grids.  Placement of colorbars in multi-panel figures
+	has proven to be a big problem, and more parameters now exist to try to manage this better in
+	multiple circumstances.
+
 	Params: xin - longtitude array of data (1-d)
 			yin - latitude array of data (1-d)
 		valsin - data to shade
