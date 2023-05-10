@@ -10,6 +10,7 @@ import sys
 import os
 from shapely.geometry import Point, MultiPoint
 from shapely.ops import nearest_points
+import matplotlib.pyplot as plt
 
 def poly_region(region_in):
     """Returns a shapely polygon defined either by the boundary of a grid from a netcdf grid file (so, a
@@ -512,9 +513,9 @@ def wlqckcomp(model_file, variable, interpol='linear', butterord=None, noplots=F
     # now find all lat / lon coords that correspond to places with data
     # and mask them with nan so that llfind() will not look for lat-lon places within
     # the dataset that have no data
-    idx2 = where(dmod[variable][0].isnull())
-    modlon[xr.DataArray(idx2[0]),xr.DataArray(idx2[1])] = nan
-    modlat[xr.DataArray(idx2[0]),xr.DataArray(idx2[1])] = nan
+    idx2 = np.where(dmod[variable][0].isnull())
+    modlon[xr.DataArray(idx2[0]),xr.DataArray(idx2[1])] = np.nan
+    modlat[xr.DataArray(idx2[0]),xr.DataArray(idx2[1])] = np.nan
 
     modtime = dmod[tvarname].values
 
@@ -541,13 +542,13 @@ def wlqckcomp(model_file, variable, interpol='linear', butterord=None, noplots=F
             else:
                 wldata = wli.copy()
 
-        figure(figsize=(12,5))
-        l1 = plot(modtime, dmod.zeta[:, idx1[0], idx1[1]], '-')
-        l2 = plot(tout, wldata, '-')
+        plt.figure(figsize=(12,5))
+        l1 = plt.plot(modtime, dmod.zeta[:, idx1[0], idx1[1]], '-')
+        l2 = plt.plot(tout, wldata, '-')
 
-        legend(['model', 'data'], loc=2)
+        plt.legend(['model', 'data'], loc=2)
         titlstr = f'Comparison of data from {dmod.file} at station {ds1[station].station}\nlat: {lat1}  lon: {lon1}'
-        title(titlstr, size=9)
+        plt.title(titlstr, size=9)
 
         xtl = plt.gca().get_xticklabels()
         plt.setp(xtl, 'size', 9)
