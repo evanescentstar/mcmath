@@ -361,7 +361,47 @@ def buoycoll(region_in, time_frame, outfile=None):
     return ds1
 
 
-def wlcoll(region_in, time_frame, outfile=None, datum='MSL', units='metric'):
+def wlget(station, time_frame, datum='NAVD', units='metric', product='water_level', format='csv'):
+    """
+    product: one of 'predictions', 'water_level', 'one_minute_water_level', 'wind', and more
+    datum: one of 'NAVD', 'MSL', 'MTL', and more
+    format: one of 'csv', 'json', 'xml'
+    units: one of 'metric' or 'english' (i.e., meters, or feet)
+    """
+    start = time_frame.split(':')[0].replace('-', '')
+    end = time_frame.split(':')[1].replace('-', '')
+    if type(station) is not str:
+        stat1 = station
+        station = '%d' % station
+    else:
+        stat1 = int(station)
+    srchstr = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=' + product + '&application=NOPP_Team4' \
+              '&begin_date=' + start + '&end_date=' + end + '&datum=' + datum + '&station=' + station + \
+              '&time_zone=GMT&units=' + units + '&format=' + format
+    try:
+        duh = pd.read_csv(srchstr)
+    except:
+        print(f'no data returned for station {station}')
+        return None
+    if product == 'water_level':
+        if duh[' Water Level'].count() == 0:
+            print(f'station {station} contains zero data')
+            return None
+    elif product == 'predictions':
+        if duh[' Prediction'].count() == 0:
+            print(f'station {station} contains zero data')
+            return None
+    dact1 = pd.read_xml(
+        'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.xml?type=waterlevels&units=english')
+    sta1 = dact1[dact1.id == stat1]
+    lat = sta1.lat.values[0]
+    lon = sta1.lng.values[0]
+    name = sta1['name'].values[0]
+    loc1 = f'{name}, {sta1.state.values[0]}'
+    duh.attrs = {'lat': lat, 'lon': lon, 'locat': loc1}
+    return duh
+
+def wlcoll(region_in, time_frame, outfile=None, datum='NAVD', units='metric', product='water_level'):
     """wlcoll - 'water level gauge collect', a script which collects all water level gauges
        which lie within a specified region and contain data within a specified time range.
 
@@ -381,10 +421,8 @@ def wlcoll(region_in, time_frame, outfile=None, datum='MSL', units='metric'):
                 or   dataset = wlcoll((24.43, -74.32, 25.76, -72.87), '2022-07-10:2022-10-18')"""
 
     # gather the list of active stations, and their lons / lats
-    stations = 'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.xml?type=waterlevels&units=english'
-    r = requests.get(stations)
-    b1 = r.content.decode()
-    dact = pd.read_xml(b1)
+    dact = pd.read_xml(
+        'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.xml?type=waterlevels&units=english')
     lons = dact.lng[1:].values
     lats = dact.lat[1:].values
     ids = dact.id[1:].values
@@ -410,9 +448,9 @@ def wlcoll(region_in, time_frame, outfile=None, datum='MSL', units='metric'):
     # specified into the xarray Dataset ds1
     for id1 in idsel:
         station = '%d' % id1
-        srchstr = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=water_level&application=NOS.COOPS.TAC.WL' \
-                  '&begin_date=' + start + '&end_date=' + end + '&datum=' + datum + '&station=' + station + \
-                  '&time_zone=GMT&units=' + units + '&format=csv'
+        srchstr = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=' + product + \
+                  '&application=NOS.COOPS.TAC.WL&begin_date=' + start + '&end_date=' + end + '&datum=' + datum + \
+                  '&station=' + station + '&time_zone=GMT&units=' + units + '&format=csv'
         try:
             duh = pd.read_csv(srchstr)
         except:
@@ -422,15 +460,17 @@ def wlcoll(region_in, time_frame, outfile=None, datum='MSL', units='metric'):
             continue
         lat = dact[dact.id == id1].lat.values
         lon = dact[dact.id == id1].lng.values
+        name = dact[dact.id == id1].iloc[0]['name']
+        loc1 = f'{name}, {dact[dact.id == id1].iloc[0].state}'
         ds1['wl_' + str(i)] = xr.DataArray(data=duh[' Water Level'].values,
                                            dims=['time_' + str(i)],
                                            coords={'time_' + str(i): duh['Date Time'].values},
-                                           attrs={'lat': lat, 'lon': lon, 'time': 'time_' + str(i), 'station': station})
+                                           attrs={'lat': lat, 'lon': lon, 'time': 'time_' + str(i), 'station': station, 'locat': loc1})
         ds1['sig_' + str(i)] = xr.DataArray(data=duh[' Sigma'].values,
                                             dims=['time_' + str(i)],
                                             coords={'time_' + str(i): duh['Date Time'].values},
                                             attrs={'lat': lat, 'lon': lon, 'time': 'time_' + str(i),
-                                                   'station': station})
+                                                   'station': station, 'locat': loc1})
         i = i + 1
 
     if len(ds1) == 0:
@@ -484,48 +524,44 @@ def my_fmt_xdate(ax=None,rot=30,hal='right'):
 
     return None
 
-def wlqckcomp(model_file, variable, interpol='linear', butterord=None, noplots=False):
-    import re
-    re_timepart = re.compile('T.*')
+def wlqckcomp(model_file, variable, time_frame=None, interpol='linear', butterord=None, datum='NAVD', product='water_level'):
 
-    # model data xr
+    # have to open a separate variable on the model file so I have access to mask data
+    # wlmodcmp1 is great for the graphing part, but only returns the one variable in dmod1
     dmod = xr.open_dataset(model_file)
-    tvarname = dmod[variable].time
-    # a bit dense, but gets the first time step value (stripping it out from being a 'dataset' object),
-    # subtracts a day, turns it into a string so that the T* time info can be stripped off
-    begin = re_timepart.sub('',(str(dmod[tvarname][0].values - np.timedelta64(0, 'D'))))
-    # the same, but for the last time point, with adding a day (so the time frame is a little bit longer than the model
-    # data, just in case)
-    end = re_timepart.sub('', (str(dmod[tvarname][-1].values + np.timedelta64(0, 'D'))))
-
-    # get water level gauge data
-    ds1 = wlcoll(model_file,begin + ':' + end)
+    ds1, dmod1 = wlmodcmp1(model_file, variable, time_frame=time_frame, datum=datum, product=product)
 
     # find all variables matching wl_* and stick them in list for iteration
-    #buh1 = ['wl_' in x for x in ds1]
     list1 = list(get_vars(ds1,'wl_'))
 
-    # find lat / lon variable names for 'variable' in model data
-    lat_ish = ['lat' in x for x in dmod[variable].coords]
-    modlat = dmod[np.array(list(dmod[variable].coords))[lat_ish][0]].values
-    lon_ish = ['lon' in x for x in dmod[variable].coords]
-    modlon = dmod[np.array(list(dmod[variable].coords))[lon_ish][0]].values
+    if 'mask_rho' in list(dmod):
+        if dmod['mask_rho'].values.any():
+            idx2 = np.where(dmod['mask_rho'].values == 0)
+        else:
+            idx2 = np.where(dmod1[0].isnull())
+    else:
+        idx2 = np.where(dmod1[0].isnull())
+
+    # find lat / lon / time variable names for 'variable' in model data
+    lat_ish = ['lat' in x for x in dmod1.coords]
+    modlat = dmod[np.array(list(dmod1.coords))[lat_ish][0]].values
+    lon_ish = ['lon' in x for x in dmod1.coords]
+    modlon = dmod[np.array(list(dmod1.coords))[lon_ish][0]].values
+    time_ish = ['time' in x for x in dmod1.coords]
+    modtime = dmod[np.array(list(dmod1.coords))[time_ish][0]].values
     # now find all lat / lon coords that correspond to places with data
     # and mask them with nan so that llfind() will not look for lat-lon places within
     # the dataset that have no data
-    idx2 = np.where(dmod[variable][0].isnull())
     modlon[xr.DataArray(idx2[0]),xr.DataArray(idx2[1])] = np.nan
     modlat[xr.DataArray(idx2[0]),xr.DataArray(idx2[1])] = np.nan
 
-    modtime = dmod[tvarname].values
-
-    ix = 1
     print(f'station list is {list1}')
     for station in list1:
         lat1 = ds1[station].lat
         lon1 = ds1[station].lon
         time1 = ds1[ds1[station].time]
         tstr = ds1[station].time
+        locat1 = ds1[station].locat
 
         idx1 = llfind(lat1, lon1, modlat, modlon)
         tout = d64(time1.values)
@@ -542,21 +578,227 @@ def wlqckcomp(model_file, variable, interpol='linear', butterord=None, noplots=F
             else:
                 wldata = wli.copy()
 
+        moddat = dmod1[:, idx1[0], idx1[1]]
         plt.figure(figsize=(12,5))
-        l1 = plt.plot(modtime, dmod.zeta[:, idx1[0], idx1[1]], '-')
+        l1 = plt.plot(modtime, moddat, '-')
         l2 = plt.plot(tout, wldata, '-')
 
-        plt.legend(['model', 'data'], loc=2)
-        titlstr = f'Comparison of data from {dmod.file} at station {ds1[station].station}\nlat: {lat1}  lon: {lon1}'
+        ltxt1 = 'model' + f' - mean:{moddat.mean().values: .2f}'
+        ltxt2 = 'data' + f' - mean: {wldata.mean(): .2f}'
+        plt.legend([ltxt1, ltxt2], loc=2)
+
+        titlstr = f'Comparison of data from {dmod.file} at station {ds1[station].station}\nlocation: {locat1}  ' \
+                  f'lat: {lat1}  lon: {lon1}, Datum: {datum}'
         plt.title(titlstr, size=9)
 
         xtl = plt.gca().get_xticklabels()
         plt.setp(xtl, 'size', 9)
         my_fmt_xdate(None, rot=30, hal='right')
-
-        fileout = 'plot-out/wlcmp-' + ds1[station].station
+        plt.ylabel('water level (m)')
+        
+        fileout = 'plot-tst/wlcmp-' + ds1[station].station
         plt.savefig(fileout, dpi=200)
 
         plt.close()
 
-    return None
+    return ds1, dmod
+
+def wl1station(station, model_file, variable, time_frame, datum='NAVD'):
+    duh1 = wlget(station, time_frame, datum=datum)
+    lat1 = duh1.attrs['lat']
+    lon1 = duh1.attrs['lon']
+    time1 = duh1['Date Time'].values
+    tout = d64(time1)
+    locat1 = duh1.attrs['locat']
+
+    dmod = xr.open_dataset(model_file)
+    tvarname = dmod[variable].time
+    lat_ish = ['lat' in x for x in dmod[variable].coords]
+    modlat = dmod[np.array(list(dmod[variable].coords))[lat_ish][0]].values
+    lon_ish = ['lon' in x for x in dmod[variable].coords]
+    modlon = dmod[np.array(list(dmod[variable].coords))[lon_ish][0]].values
+    time_ish = ['time' in x for x in dmod[variable].coords]
+    modtime = dmod[np.array(list(dmod[variable].coords))[time_ish][0]].values
+    # now find all lat / lon coords that correspond to places with data
+    # and mask them with nan so that llfind() will not look for lat-lon places within
+    # the dataset that have no data
+    idx2 = np.where(dmod[variable][0].isnull())
+    modlon[xr.DataArray(idx2[0]), xr.DataArray(idx2[1])] = np.nan
+    modlat[xr.DataArray(idx2[0]), xr.DataArray(idx2[1])] = np.nan
+
+    start = time_frame.split(':')[0]
+    end = time_frame.split(':')[1]
+    idxt = np.where((modtime > np.datetime64(start)) & (modtime < np.datetime64(end)))
+
+    idx1 = llfind(lat1, lon1, modlat, modlon)
+    wldata = duh1[' Water Level'].values
+    moddat = dmod.zeta[idxt][:, idx1[0], idx1[1]]
+    moddattime = modtime[idxt]
+
+    fig1 = plt.figure(figsize=(12, 6))
+
+    l1 = plt.plot(moddattime, moddat, '-')
+    l2 = plt.plot(tout, wldata, '-')
+    ltxt1 = 'model' + f' - mean:{moddat.mean().values: .2f}'
+    ltxt2 = 'data' + f' - mean: {wldata.mean(): .2f}'
+    plt.legend([ltxt1, ltxt2], loc=2)
+
+    titlstr = f'Comparison of data from {dmod.file} at station {station}\nlocation: {locat1}  ' \
+              f'lat: {lat1}  lon: {lon1}, Datum: {datum}'
+    plt.title(titlstr, size=9)
+
+    xtl = plt.gca().get_xticklabels()
+    plt.setp(xtl, 'size', 9)
+    my_fmt_xdate(None, rot=30, hal='right')
+    plt.ylabel('water level (m)')
+
+    return duh1,moddat
+
+def wlqckcomp2(model_file, variable, time_frame=None, interpol='linear', butterord=None, datum='NAVD', product='water_level'):
+    import cartopy.crs as crs
+    import matplotlib.cm as cm
+
+    # have to open a separate variable on the model file so I have access to mask data
+    # wlmodcmp1 is great for the graphing part, but only returns the one variable in dmod1
+    dmod = xr.open_dataset(model_file)
+    ds1, dmod1 = wlmodcmp1(model_file, variable, time_frame=time_frame, datum=datum, product=product)
+
+    # find all variables matching wl_* and stick them in list for iteration
+    list1 = list(get_vars(ds1,'wl_'))
+
+    if 'mask_rho' in list(dmod):
+        if dmod['mask_rho'].values.any():
+            idx2 = np.where(dmod['mask_rho'].values == 0)
+        else:
+            idx2 = np.where(dmod1[0].isnull())
+    else:
+        idx2 = np.where(dmod1[0].isnull())
+
+    # find lat / lon / time variable names for 'variable' in model data
+    lat_ish = ['lat' in x for x in dmod1.coords]
+    modlat = dmod[np.array(list(dmod1.coords))[lat_ish][0]].values
+    lon_ish = ['lon' in x for x in dmod1.coords]
+    modlon = dmod[np.array(list(dmod1.coords))[lon_ish][0]].values
+    time_ish = ['time' in x for x in dmod1.coords]
+    modtime = dmod[np.array(list(dmod1.coords))[time_ish][0]].values
+    # now find all lat / lon coords that correspond to places with data
+    # and mask them with nan so that llfind() will not look for lat-lon places within
+    # the dataset that have no data
+    modlon[xr.DataArray(idx2[0]),xr.DataArray(idx2[1])] = np.nan
+    modlat[xr.DataArray(idx2[0]),xr.DataArray(idx2[1])] = np.nan
+
+    ix = 0
+    print(f'station list is {list1}')
+    out1 = np.zeros((len(list1), 4))
+    for station in list1:
+        lat1 = ds1[station].lat
+        lon1 = ds1[station].lon
+        time1 = ds1[ds1[station].time]
+        tstr = ds1[station].time
+        locat1 = ds1[station].locat
+
+        idx1 = llfind(lat1, lon1, modlat, modlon)
+        tout = d64(time1.values)
+        wldata = ds1[station]
+        if interpol is not None:
+            wli = wldata.interpolate_na(dim=tstr, method=interpol, use_coordinate=False).values
+            if butterord is not None:
+                from scipy.signal import buttord, butter, filtfilt
+                N, Wn = butterord
+                #N, Wn = buttord(0.2, 0.23, 0.3, 0.6)
+                b, a = butter(N, Wn)
+                wlf = filtfilt(b, a, wli)
+                wldata = wlf.copy()
+            else:
+                wldata = wli.copy()
+
+        out1[ix,0] = lat1
+        out1[ix,1] = lon1
+        out1[ix,2] = dmod1[:, idx1[0], idx1[1]].mean() - wldata.mean()
+        out1[ix,3] = dmod1[:, idx1[0], idx1[1]].std(ddof=1) / wldata.std(ddof=1)
+        ix = ix + 1
+
+    cpc = crs.PlateCarree()
+
+    fig1 = plt.figure(figsize=(9,9.5))
+    ax1 = fig1.add_axes((0.05,0.05,0.92,0.92), projection=cpc)
+    ax1.coastlines()
+
+    c1=ax1.scatter(out1[:,1],out1[:,0],c=out1[:,2],s=30,cmap=cm.gist_ncar,vmin=-.6,vmax=.6)
+    plt.colorbar(c1)
+    plt.title(f'L0 minus NOAA tide gauges: mean difference, datum: {datum}')
+    anntxt = f"min = {out1[:,2].min(): .2f} m\nmax = {out1[:,2].max(): .2f} m\nmean = {out1[:,2].mean(): .2f} m"
+    ax1.annotate(anntxt, (0.05,0.85), xycoords='figure fraction')
+    gl = ax1.gridlines(crs=cpc, draw_labels=True,
+                      linewidth=2, color='gray', alpha=0, linestyle='--')
+    gl.right_labels = False
+    gl.top_labels = False
+
+    #plt.savefig('LO-minus-WLgauges-mean_navd.png',dpi=200)
+
+
+    fig1 = plt.figure(figsize=(9,9.5))
+    ax1 = fig1.add_axes((0.05,0.05,0.92,0.92), projection=cpc)
+    ax1.coastlines()
+
+    c1=ax1.scatter(out1[:,1],out1[:,0],c=out1[:,3],s=30,cmap=cm.Spectral_r,vmin=0,vmax=2)
+    plt.colorbar(c1)
+    plt.title(f'L0 vs NOAA tide gauges: fraction of s.d., datum: {datum}')
+    annstdtxt = f"min = {out1[:,3].min(): .2f} \nmax = {out1[:,3].max(): .2f}\nmean = {out1[:,3].mean(): .2f}"
+    ax1.annotate(annstdtxt, (0.05,0.85), xycoords='figure fraction')
+
+    gl = ax1.gridlines(crs=cpc, draw_labels=True,
+                      linewidth=2, color='gray', alpha=0, linestyle='--')
+    gl.right_labels = False
+    gl.top_labels = False
+
+    #plt.savefig('LO-vs-WLgauges-std_navd.png',dpi=200)
+
+    # plot L0
+    fig1 = plt.figure(figsize=(9,9.5))
+    ax1 = fig1.add_axes((0.05,0.05,0.92,0.92), projection=cpc)
+    ax1.coastlines()
+    dmod = xr.open_dataset(model_file)
+    pc1 = plt.pcolormesh(dmod.lon_rho,dmod.lat_rho,dmod.zeta[45])
+
+    return out1
+
+def wlmodcmp1(model_file, variable, time_frame=None, datum='NAVD', product='water_level'):
+    """This function is called to simply first gather water level data (or something from the NOAA gauges, supplied
+    by the 'product' parameter) that is colocated within a given model data file's grid, the model data from
+    the given file, and prunes both data sets
+    to the same time window.  This is either the whole time frame of the model data, which is the default, or is
+    given by the 'time_frame' parameter in the form of a string of dates separated by a colon
+    (i.e., time_frame='2023-02-25:2023-03-15')."""
+    import re
+    re_timepart = re.compile('T.*')
+
+    # model data xr
+    dmod = xr.open_dataset(model_file)
+
+    time_ish = ['time' in x for x in dmod[variable].coords]
+    modtime = dmod[np.array(list(dmod[variable].coords))[time_ish][0]]
+
+    if time_frame is None:
+        # a bit dense, but gets the first time step value (stripping it out from being a 'dataset' object),
+        # subtracts a day, turns it into a string so that the T* time info can be stripped off
+        begin = re_timepart.sub('', (str((modtime[0] - np.timedelta64(0, 'D')).values)))
+        # the same, but for the last time point, with adding a day (so the time frame is a little bit longer than the model
+        # data, just in case)
+        end = re_timepart.sub('', (str((modtime[-1] + np.timedelta64(1, 'D')).values)))
+        timeframe = begin + ':' + end
+    else:
+        start = time_frame.split(':')[0]
+        end = time_frame.split(':')[1]
+        idxt = np.where((modtime > np.datetime64(start)) & (modtime < np.datetime64(end)))
+        timeframe = time_frame
+
+    # get water level gauge data
+    ds1 = wlcoll(model_file, timeframe, datum=datum, product=product)
+
+    if time_frame is None:
+        moddat = dmod[variable]
+    else:
+        moddat = dmod[variable][idxt]
+
+    return ds1,moddat
