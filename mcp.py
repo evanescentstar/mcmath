@@ -639,74 +639,77 @@ def shade(xin, yin, valsin, proj='merc', lon0=None, res='auto', blat=30, lat0=No
 		# xmin = xin.min() - xquart
 		# xmax = xin.max() + xquart
 
-	if proj == 'moll':
-		m1 = Basemap(projection=proj, lon_0=lon0, resolution=res)
-	elif proj == 'robin':
-		m1 = Basemap(projection=proj, lon_0=lon0, resolution=res)
-	##	elif proj == 'eck4':
-	##		m1 = Basemap(projection=proj,lon_0=xedg[0],resolution=res)
-	elif proj == 'cyl':
-		m1 = Basemap(projection=proj, llcrnrlat=yout[0], llcrnrlon=xout[0],
-					 urcrnrlat=yout[-1], urcrnrlon=xout[-1], resolution=res)
-	elif proj == 'cass':
-		m1 = Basemap(llcrnrlat=yout[0], llcrnrlon=xout[0], urcrnrlat=yout[-1],
-					 urcrnrlon=xout[-1], resolution=res, projection=proj,
-					 lon_0=(xedg[0] + xedg[-1]) / 2, lat_0=(yedg[0] + yedg[-1]) / 2)
-	elif proj == 'tmerc':
-		m1 = Basemap(llcrnrlat=yout[0], llcrnrlon=xout[0], urcrnrlat=yout[-1],
-					 urcrnrlon=xout[-1], resolution=res, projection=proj,
-					 lon_0=(xout[0] + xout[-1]) / 2, lat_0=(yout[0] + yout[-1]) / 2)
-	elif proj == 'merc':
-		crs1 = crs.Mercator(central_longitude=lon0,min_latitude=ymin, max_latitude=ymax)
-		setext = True
-	elif proj == 'npl':
-		m1 = Basemap(projection='nplaea', boundinglat=blat, lon_0=lon0, resolution=res)
-	elif proj == 'spl':
-		m1 = Basemap(projection='splaea', boundinglat=blat, lon_0=lon0, resolution=res)
-	elif proj == 'laea':
-		if (lat0 is None):
-			raise MCPlotError("central latitude not specified")
-		m1 = Basemap(width=wid, height=ht, resolution=res, projection='laea', \
-					 lat_ts=lat0, lat_0=lat0, lon_0=lon0)
-	else:
-		m1 = Basemap(projection=proj, llcrnrlat=yout[0], llcrnrlon=xout[0],
-					 urcrnrlat=yout[-1], urcrnrlon=xout[-1], resolution=res)
-
-	## FIX: there is a problem with the splaea projection when one of the
-	## returned latitudes from shade_coord is +90 deg (North).  Then the
-	## Basemap object (here, m1) returns for some longitude map projection
-	## coords 1e30.  To fix this, I scrap the last row of yedg if it's +90 (only for splaea).
-	if proj == 'spl':
-		if yedg[-1] == 90.:
-			yedg = yedg[:-1]
-			dataout = dataout[:-1]
-
-	## FIX: Not a serious problem, but for moll and robin projections
-	## the shade polygons overwrite parts of the map boundary.  This chunk
-	## of code helps to offset the polygons from the edges just a little.
-	## It may still be helpful after running shade() to use m1.drawmapboundary(linewidth=2)
-	## to help strengthen the edge, should that be needed.
-	if (proj == 'moll') | (proj == 'robin'):
-		xf = 0.1  # dummy def. for spacing variable
-		xspan = xedg[-1] - xedg[0]
-		xinc = xedg[3] - xedg[2]
-		if xinc < xspan * 0.0012:
-			xf = xinc * 0.4
-		else:
-			xf = xspan * 0.0006
-		if xedg[0] == xedg[1]:
-			xedg[0] = xedg[0] + xf
-			xedg[1] = xedg[1] + xf * 1.5
-		else:
-			xedg[0] = xedg[0] + xf
-
-		if xedg[-1] == xedg[-2]:
-			xedg[-1] = xedg[-1] - xf
-			xedg[-2] = xedg[-2] - xf * 1.5
-		else:
-			xedg[-1] = xedg[-1] - xf
+	# if proj == 'moll':
+	# 	m1 = Basemap(projection=proj, lon_0=lon0, resolution=res)
+	# elif proj == 'robin':
+	# 	m1 = Basemap(projection=proj, lon_0=lon0, resolution=res)
+	# ##	elif proj == 'eck4':
+	# ##		m1 = Basemap(projection=proj,lon_0=xedg[0],resolution=res)
+	# elif proj == 'cyl':
+	# 	m1 = Basemap(projection=proj, llcrnrlat=yout[0], llcrnrlon=xout[0],
+	# 				 urcrnrlat=yout[-1], urcrnrlon=xout[-1], resolution=res)
+	# elif proj == 'cass':
+	# 	m1 = Basemap(llcrnrlat=yout[0], llcrnrlon=xout[0], urcrnrlat=yout[-1],
+	# 				 urcrnrlon=xout[-1], resolution=res, projection=proj,
+	# 				 lon_0=(xedg[0] + xedg[-1]) / 2, lat_0=(yedg[0] + yedg[-1]) / 2)
+	# elif proj == 'tmerc':
+	# 	m1 = Basemap(llcrnrlat=yout[0], llcrnrlon=xout[0], urcrnrlat=yout[-1],
+	# 				 urcrnrlon=xout[-1], resolution=res, projection=proj,
+	# 				 lon_0=(xout[0] + xout[-1]) / 2, lat_0=(yout[0] + yout[-1]) / 2)
+	# elif proj == 'merc':
+	# 	crs1 = crs.Mercator(central_longitude=lon0,min_latitude=ymin, max_latitude=ymax)
+	# 	setext = True
+	# elif proj == 'npl':
+	# 	m1 = Basemap(projection='nplaea', boundinglat=blat, lon_0=lon0, resolution=res)
+	# elif proj == 'spl':
+	# 	m1 = Basemap(projection='splaea', boundinglat=blat, lon_0=lon0, resolution=res)
+	# elif proj == 'laea':
+	# 	if (lat0 is None):
+	# 		raise MCPlotError("central latitude not specified")
+	# 	m1 = Basemap(width=wid, height=ht, resolution=res, projection='laea', \
+	# 				 lat_ts=lat0, lat_0=lat0, lon_0=lon0)
+	# else:
+	# 	m1 = Basemap(projection=proj, llcrnrlat=yout[0], llcrnrlon=xout[0],
+	# 				 urcrnrlat=yout[-1], urcrnrlon=xout[-1], resolution=res)
+	#
+	# ## FIX: there is a problem with the splaea projection when one of the
+	# ## returned latitudes from shade_coord is +90 deg (North).  Then the
+	# ## Basemap object (here, m1) returns for some longitude map projection
+	# ## coords 1e30.  To fix this, I scrap the last row of yedg if it's +90 (only for splaea).
+	# if proj == 'spl':
+	# 	if yedg[-1] == 90.:
+	# 		yedg = yedg[:-1]
+	# 		dataout = dataout[:-1]
+	#
+	# ## FIX: Not a serious problem, but for moll and robin projections
+	# ## the shade polygons overwrite parts of the map boundary.  This chunk
+	# ## of code helps to offset the polygons from the edges just a little.
+	# ## It may still be helpful after running shade() to use m1.drawmapboundary(linewidth=2)
+	# ## to help strengthen the edge, should that be needed.
+	# if (proj == 'moll') | (proj == 'robin'):
+	# 	xf = 0.1  # dummy def. for spacing variable
+	# 	xspan = xedg[-1] - xedg[0]
+	# 	xinc = xedg[3] - xedg[2]
+	# 	if xinc < xspan * 0.0012:
+	# 		xf = xinc * 0.4
+	# 	else:
+	# 		xf = xspan * 0.0006
+	# 	if xedg[0] == xedg[1]:
+	# 		xedg[0] = xedg[0] + xf
+	# 		xedg[1] = xedg[1] + xf * 1.5
+	# 	else:
+	# 		xedg[0] = xedg[0] + xf
+	#
+	# 	if xedg[-1] == xedg[-2]:
+	# 		xedg[-1] = xedg[-1] - xf
+	# 		xedg[-2] = xedg[-2] - xf * 1.5
+	# 	else:
+	# 		xedg[-1] = xedg[-1] - xf
 
 	if proj in ['merc','tmerc','UTM']:
+		if proj == 'merc':
+			crs1 = crs.Mercator(central_longitude=lon0, min_latitude=ymin, max_latitude=ymax)
+			setext = True
 		xyzn = crs1.transform_points(cpc, x=xin, y=yin)
 		xn = xyzn[:, :, 0]
 		yn = xyzn[:, :, 1]
