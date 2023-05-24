@@ -12,6 +12,7 @@ from matplotlib.pylab import date2num,num2date
 from mcmath import n2d,d2n
 import cartopy
 from cartopy import crs
+import xarray as xr
 #from mpl_toolkits.basemap import interp as bminterp
 
 global plt,date2num,num2date,n2d,d2n
@@ -617,9 +618,12 @@ def shade(xin, yin, valsin, proj='merc', lon0=None, res='auto', blat=30, lat0=No
 			"""
 	from mcmath import edges
 
+	if type(xin) is xr.DataArray:
+		xin = xin.values
+		yin = yin.values
 
 	if lon0 is None:
-		lon0 = (xin.max() + xin.min())/2.
+		lon0 = np.float64((xin.max() + xin.min())/2.)
 
 	xmin = xin.min()
 	xmax = xin.max()
@@ -740,14 +744,14 @@ def shade(xin, yin, valsin, proj='merc', lon0=None, res='auto', blat=30, lat0=No
 			ax2 = fig.add_axes((endx + xspacer, 0.1, 0.02, 0.8), autoscale_on=False)
 			if cbticks is None:
 				if cbnds is None:
-					plt.colorbar(cax=ax2, ax=ax1, extend=cbext)
+					plt.colorbar(mappable=cs, cax=ax2, ax=ax1, extend=cbext)
 				else:
-					plt.colorbar(cax=ax2, ax=ax1, extend=cbext, boundaries=cbnds)
+					plt.colorbar(mappable=cs, cax=ax2, ax=ax1, extend=cbext, boundaries=cbnds)
 			else:
 				if cbnds is None:
-					plt.colorbar(cax=ax2, ax=ax1, extend=cbext, ticks=cbticks)
+					plt.colorbar(mappable=cs, cax=ax2, ax=ax1, extend=cbext, ticks=cbticks)
 				else:
-					plt.colorbar(cax=ax2, ax=ax1, extend=cbext, ticks=cbticks, boundaries=cbnds)
+					plt.colorbar(mappable=cs, cax=ax2, ax=ax1, extend=cbext, ticks=cbticks, boundaries=cbnds)
 		else:
 			bbox1 = plt.gca().get_position()
 			endx = bbox1.get_points()[1, 0]
@@ -772,14 +776,14 @@ def shade(xin, yin, valsin, proj='merc', lon0=None, res='auto', blat=30, lat0=No
 			ax2 = fig.add_axes((endx + xspacer, begy, xext, yext), autoscale_on=False)
 			if cbticks is None:
 				if cbnds is None:
-					plt.colorbar(cax=ax2, ax=ax1, extend=cbext)
+					plt.colorbar(mappable=cs, cax=ax2, ax=ax1, extend=cbext)
 				else:
-					plt.colorbar(cax=ax2, ax=ax1, extend=cbext, boundaries=cbnds)
+					plt.colorbar(mappable=cs, cax=ax2, ax=ax1, extend=cbext, boundaries=cbnds)
 			else:
 				if cbnds is None:
-					plt.colorbar(cax=ax2, ax=ax1, extend=cbext, ticks=cbticks)
+					plt.colorbar(mappable=cs, cax=ax2, ax=ax1, extend=cbext, ticks=cbticks)
 				else:
-					plt.colorbar(cax=ax2, ax=ax1, extend=cbext, ticks=cbticks, boundaries=cbnds)
+					plt.colorbar(mappable=cs, cax=ax2, ax=ax1, extend=cbext, ticks=cbticks, boundaries=cbnds)
 		if cbticksize is not None:
 			ytl = ax2.get_yticklabels()
 			plt.setp(ytl, 'size', cbticksize)
@@ -798,7 +802,7 @@ def shade(xin, yin, valsin, proj='merc', lon0=None, res='auto', blat=30, lat0=No
 	# 	(x, y) = m1(*np.meshgrid(xout, yout))
 	# 	m1.scatter(x[::density, ::density], y[::density, ::density], a2[::density, ::density], ax=ax1, marker=',')
 
-	return m1, cs
+	return crs1, cs
 
 
 ##	return m1
