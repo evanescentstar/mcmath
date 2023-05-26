@@ -480,7 +480,13 @@ def wlcoll(region_in, time_frame, outfile=None, datum='NAVD', units='metric', pr
 
     return ds1
 
-def llfind(lat1,lon1,lats1,lons1):
+def gcdist(startlat, startlon, endlat, endlon):
+    import pyproj
+    g = pyproj.Geod(ellps='WGS84')
+    (az12, az21, dist) = g.inv(startlon, startlat, endlon, endlat)
+    return dist
+
+def llfind(lat1,lon1,lats1,lons1, maxdist=3):
     lons1a = lons1[~np.isnan(lons1)]
     lats1a = lats1[~np.isnan(lats1)]
     blah = list(zip(lats1a, lons1a))
@@ -491,8 +497,15 @@ def llfind(lat1,lon1,lats1,lons1):
     ng1 = nearest_points(p1, mp1)
     ng11 = ng1[1]
 
-    idx = np.argwhere(((ng11.xy[0] == lats1) & (ng11.xy[1] == lons1)))
-    return idx.squeeze()
+    idx = np.argwhere(((ng11.xy[0] == lats1) & (ng11.xy[1] == lons1))).squeeze()
+    
+    dist1 = gcdist(lats1.flatten()[0],lons1.flatten()[0],lats1.flatten()[1],lons1.flatten()[1])
+    max1 = maxdist*dist1
+    
+    if gcdist(lat1,lon1,lats1[tuple(idx)],lons1[tuple(idx)]) > max1:
+        return None
+    else:
+        return idx
 
 def d64(tarray):
     """takes date strings from xarray / pandas output which aren't datetime64 objects
@@ -564,6 +577,8 @@ def wlqckcomp(model_file, variable, time_frame=None, interpol='linear', butteror
         locat1 = ds1[station].locat
 
         idx1 = llfind(lat1, lon1, modlat, modlon)
+        if idx1 is None:
+            continue
         tout = d64(time1.values)
         wldata = ds1[station]
         if interpol is not None:
@@ -579,7 +594,7 @@ def wlqckcomp(model_file, variable, time_frame=None, interpol='linear', butteror
                 wldata = wli.copy()
 
         moddat = dmod1[:, idx1[0], idx1[1]]
-        plt.figure(figsize=(12,5))
+        plt.figure(figsize=(6,3))
         l1 = plt.plot(modtime, moddat, '-')
         l2 = plt.plot(tout, wldata, '-')
 
@@ -631,6 +646,9 @@ def wl1station(station, model_file, variable, time_frame, datum='NAVD'):
     idxt = np.where((modtime > np.datetime64(start)) & (modtime < np.datetime64(end)))
 
     idx1 = llfind(lat1, lon1, modlat, modlon)
+    if idx1 is None:
+        print(f'no model data found within range of station {station}')
+        return None
     wldata = duh1[' Water Level'].values
     moddat = dmod.zeta[idxt][:, idx1[0], idx1[1]]
     moddattime = modtime[idxt]
@@ -698,6 +716,8 @@ def wlqckcomp2(model_file, variable, time_frame=None, interpol='linear', buttero
         locat1 = ds1[station].locat
 
         idx1 = llfind(lat1, lon1, modlat, modlon)
+        if idx1 is None:
+            continue
         tout = d64(time1.values)
         wldata = ds1[station]
         if interpol is not None:
@@ -720,13 +740,13 @@ def wlqckcomp2(model_file, variable, time_frame=None, interpol='linear', buttero
 
     cpc = crs.PlateCarree()
 
-    fig1 = plt.figure(figsize=(9,9.5))
+    fig1 = plt.figure(figsize=(6.4,4.8))
     ax1 = fig1.add_axes((0.05,0.05,0.92,0.92), projection=cpc)
     ax1.coastlines()
 
-    c1=ax1.scatter(out1[:,1],out1[:,0],c=out1[:,2],s=30,cmap=cm.gist_ncar,vmin=-.6,vmax=.6)
+    c1=ax1.scatter(out1[:,1],out1[:,0],c=out1[:,2],s=30,cmap=cm.seismic,vmin=-.6,vmax=.6)
     plt.colorbar(c1)
-    plt.title(f'L0 minus NOAA tide gauges: mean difference, datum: {datum}')
+    plt.title(f'Model minus NOAA tide gauges: mean difference, datum: {datum}')
     anntxt = f"min = {out1[:,2].min(): .2f} m\nmax = {out1[:,2].max(): .2f} m\nmean = {out1[:,2].mean(): .2f} m"
     ax1.annotate(anntxt, (0.05,0.85), xycoords='figure fraction')
     gl = ax1.gridlines(crs=cpc, draw_labels=True,
@@ -737,13 +757,13 @@ def wlqckcomp2(model_file, variable, time_frame=None, interpol='linear', buttero
     #plt.savefig('LO-minus-WLgauges-mean_navd.png',dpi=200)
 
 
-    fig1 = plt.figure(figsize=(9,9.5))
+    fig1 = plt.figure(figsize=(6.4,4.8))
     ax1 = fig1.add_axes((0.05,0.05,0.92,0.92), projection=cpc)
     ax1.coastlines()
 
     c1=ax1.scatter(out1[:,1],out1[:,0],c=out1[:,3],s=30,cmap=cm.Spectral_r,vmin=0,vmax=2)
     plt.colorbar(c1)
-    plt.title(f'L0 vs NOAA tide gauges: fraction of s.d., datum: {datum}')
+    plt.title(f'Model vs NOAA tide gauges: fraction of s.d., datum: {datum}')
     annstdtxt = f"min = {out1[:,3].min(): .2f} \nmax = {out1[:,3].max(): .2f}\nmean = {out1[:,3].mean(): .2f}"
     ax1.annotate(annstdtxt, (0.05,0.85), xycoords='figure fraction')
 
@@ -760,6 +780,11 @@ def wlqckcomp2(model_file, variable, time_frame=None, interpol='linear', buttero
     ax1.coastlines()
     dmod = xr.open_dataset(model_file)
     pc1 = plt.pcolormesh(dmod.lon_rho,dmod.lat_rho,dmod.zeta[45])
+    plt.title(f'Model domain')
+    gl = ax1.gridlines(crs=cpc, draw_labels=True,
+                       linewidth=2, color='gray', alpha=0, linestyle='--')
+    gl.right_labels = False
+    gl.top_labels = False
 
     return out1
 
