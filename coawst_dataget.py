@@ -741,14 +741,14 @@ def wlqckcomp2(model_file, variable, time_frame=None, interpol='linear', buttero
     cpc = crs.PlateCarree()
 
     fig1 = plt.figure(figsize=(6.4,4.8))
-    ax1 = fig1.add_axes((0.05,0.05,0.92,0.92), projection=cpc)
+    ax1 = fig1.add_axes((0.08,0.05,0.92,0.92), projection=cpc)
     ax1.coastlines()
 
     c1=ax1.scatter(out1[:,1],out1[:,0],c=out1[:,2],s=30,cmap=cm.seismic,vmin=-.6,vmax=.6)
     plt.colorbar(c1)
-    plt.title(f'Model minus NOAA tide gauges: mean difference, datum: {datum}')
+    plt.title(f'Model minus NOAA tide gauges: mean difference, datum: {datum}', size=11)
     anntxt = f"min = {out1[:,2].min(): .2f} m\nmax = {out1[:,2].max(): .2f} m\nmean = {out1[:,2].mean(): .2f} m"
-    ax1.annotate(anntxt, (0.05,0.85), xycoords='figure fraction')
+    ax1.annotate(anntxt, (0.1,0.8), xycoords='figure fraction')
     gl = ax1.gridlines(crs=cpc, draw_labels=True,
                       linewidth=2, color='gray', alpha=0, linestyle='--')
     gl.right_labels = False
@@ -758,14 +758,14 @@ def wlqckcomp2(model_file, variable, time_frame=None, interpol='linear', buttero
 
 
     fig1 = plt.figure(figsize=(6.4,4.8))
-    ax1 = fig1.add_axes((0.05,0.05,0.92,0.92), projection=cpc)
+    ax1 = fig1.add_axes((0.08,0.05,0.92,0.92), projection=cpc)
     ax1.coastlines()
 
     c1=ax1.scatter(out1[:,1],out1[:,0],c=out1[:,3],s=30,cmap=cm.Spectral_r,vmin=0,vmax=2)
     plt.colorbar(c1)
-    plt.title(f'Model vs NOAA tide gauges: fraction of s.d., datum: {datum}')
+    plt.title(f'Model vs NOAA tide gauges: fraction of s.d., datum: {datum}', size=11)
     annstdtxt = f"min = {out1[:,3].min(): .2f} \nmax = {out1[:,3].max(): .2f}\nmean = {out1[:,3].mean(): .2f}"
-    ax1.annotate(annstdtxt, (0.05,0.85), xycoords='figure fraction')
+    ax1.annotate(annstdtxt, (0.1,0.8), xycoords='figure fraction')
 
     gl = ax1.gridlines(crs=cpc, draw_labels=True,
                       linewidth=2, color='gray', alpha=0, linestyle='--')
