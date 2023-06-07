@@ -456,21 +456,34 @@ def wlcoll(region_in, time_frame, outfile=None, datum='NAVD', units='metric', pr
         except:
             print(f'no data returned for station {station}')
             continue
-        if duh[' Water Level'].count() == 0:
-            continue
+        if product == 'water_level':
+            if duh[' Water Level'].count() == 0:
+                print(f'station {station} contains zero data')
+                continue
+        elif product == 'predictions':
+            if duh[' Prediction'].count() == 0:
+                print(f'station {station} contains zero data')
+                continue
         lat = dact[dact.id == id1].lat.values
         lon = dact[dact.id == id1].lng.values
         name = dact[dact.id == id1].iloc[0]['name']
         loc1 = f'{name}, {dact[dact.id == id1].iloc[0].state}'
-        ds1['wl_' + str(i)] = xr.DataArray(data=duh[' Water Level'].values,
-                                           dims=['time_' + str(i)],
-                                           coords={'time_' + str(i): duh['Date Time'].values},
-                                           attrs={'lat': lat, 'lon': lon, 'time': 'time_' + str(i), 'station': station, 'locat': loc1})
-        ds1['sig_' + str(i)] = xr.DataArray(data=duh[' Sigma'].values,
-                                            dims=['time_' + str(i)],
-                                            coords={'time_' + str(i): duh['Date Time'].values},
-                                            attrs={'lat': lat, 'lon': lon, 'time': 'time_' + str(i),
-                                                   'station': station, 'locat': loc1})
+        if product == 'water_level':
+            ds1['wl_' + str(i)] = xr.DataArray(data=duh[' Water Level'].values,
+                                               dims=['time_' + str(i)],
+                                               coords={'time_' + str(i): duh['Date Time'].values},
+                                               attrs={'lat': lat, 'lon': lon, 'time': 'time_' + str(i), 'station': station, 'locat': loc1})
+            ds1['sig_' + str(i)] = xr.DataArray(data=duh[' Sigma'].values,
+                                                dims=['time_' + str(i)],
+                                                coords={'time_' + str(i): duh['Date Time'].values},
+                                                attrs={'lat': lat, 'lon': lon, 'time': 'time_' + str(i),
+                                                       'station': station, 'locat': loc1})
+        elif product == 'predictions':
+            ds1['wl_' + str(i)] = xr.DataArray(data=duh[' Prediction'].values,
+                                               dims=['time_' + str(i)],
+                                               coords={'time_' + str(i): duh['Date Time'].values},
+                                               attrs={'lat': lat, 'lon': lon, 'time': 'time_' + str(i),
+                                                      'station': station, 'locat': loc1})
         i = i + 1
 
     if len(ds1) == 0:
@@ -537,7 +550,7 @@ def my_fmt_xdate(ax=None,rot=30,hal='right'):
 
     return None
 
-def wlqckcomp(model_file, variable, time_frame=None, interpol='linear', butterord=None, datum='NAVD', product='water_level'):
+def wlqckcomp(model_file, variable, time_frame=None, interpol=None, butterord=None, datum='NAVD', product='water_level'):
 
     # have to open a separate variable on the model file so I have access to mask data
     # wlmodcmp1 is great for the graphing part, but only returns the one variable in dmod1
@@ -672,7 +685,7 @@ def wl1station(station, model_file, variable, time_frame, datum='NAVD'):
 
     return duh1,moddat
 
-def wlqckcomp2(model_file, variable, time_frame=None, interpol='linear', butterord=None, datum='NAVD', product='water_level'):
+def wlqckcomp2(model_file, variable, time_frame=None, interpol=None, butterord=None, datum='NAVD', product='water_level'):
     import cartopy.crs as crs
     import matplotlib.cm as cm
 
@@ -709,6 +722,7 @@ def wlqckcomp2(model_file, variable, time_frame=None, interpol='linear', buttero
     print(f'station list is {list1}')
     out1 = np.zeros((len(list1), 4))
     for station in list1:
+        print(f'on station {station}')
         lat1 = ds1[station].lat
         lon1 = ds1[station].lon
         time1 = ds1[ds1[station].time]
