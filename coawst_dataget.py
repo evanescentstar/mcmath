@@ -2,6 +2,7 @@
 import pandas as pd
 import xarray as xr
 import numpy as np
+import scipy as sp
 from shapely import geometry
 import requests
 import cartopy.io.shapereader as shpreader
@@ -112,22 +113,24 @@ def datestrnorm(dstr):
 ## END of datestrnorm()
 
 
-def ndbcget(buoy, btype, timeframe):
+def ndbcget(buoy, btype, time_frame):
     """Grabs the buoy data from the dods.ndbc.noaa.gov THREDDS webserver for buoy with id 'buoy'
     and type 'btype' (one of 'stdmet', 'swden', 'ocean', 'pwind', or 'cwind', and within the time frame
-    given by a tuple of date strings, such as ('2022-03-15', '2022-04-29'), or through to the latest data,
-    ('2023-03-15', 'latest') - in UTC time zone.
+    in the form 'yyyy-mm-dd:yyyy-mm-dd' (in UTC time zone), such as '2022-03-05:2022-04-29', or through to the latest
+    data, '2023-03-15:latest'.
 
-    E.g., ndbcget('41112', 'stdmet', ('2022-03-15', '2022-04-29'))
+    E.g., ndbcget('41112', 'stdmet', '2022-03-15:2022-04-29')
     """
     import datetime
     from datetime import datetime as dt
-    print(f'looking up buoy {buoy} in {btype}, over the dates {timeframe[0]} to {timeframe[1]}')
-    start = datestrnorm(timeframe[0])
-    if timeframe[1] in ['latest', 'present', 'today']:
+    start = time_frame.split(':')[0]
+    end = time_frame.split(':')[1]
+    print(f'looking up buoy {buoy} in {btype}, over the dates {start} to {end}')
+    start = datestrnorm(start)
+    if end in ['latest', 'present', 'today']:
         end = (dt.today() + datetime.timedelta(1)).strftime('%Y-%m-%d 23:59:59')
     else:
-        end = datestrnorm(timeframe[1])
+        end = datestrnorm(end)
     # INIT vars
     ds1 = None
     varset = {'stdmet': ['wind_dir', 'wind_spd', 'gust', 'wave_height', 'dominant_wpd', 'average_wpd', 'mean_wave_dir',
@@ -163,8 +166,8 @@ def ndbcget(buoy, btype, timeframe):
                 freqcoord = ddset1.frequency.values
             for v1 in varset[btype]:
                 vout = ddset1.variables[v1][timefr].squeeze()
-                if np.count_nonzero(~np.isnan(vout.values)) == 0:
-                    print(f'var {v1} is empty, skipping')
+                if np.count_nonzero(~np.isnan(vout.values)) < 2:
+                    print(f'var {v1} contains less than 2 values, skipping')
                     continue
                 elif btype == 'swden':
                     ds1[v1] = xr.DataArray(data=vout.values,
@@ -189,7 +192,7 @@ def ndbcget(buoy, btype, timeframe):
 ## END of ndbcget()
 
 
-def buoycoll(region_in, time_frame, outfile=None):
+def buoycoll(region_in, time_frame=None, outfile=None, variable=None):
     """buoycoll - 'buoy collect', a script which collects all NDBC buoys which lie within a specified region
     and contain data within a specified time range.
 
@@ -197,7 +200,10 @@ def buoycoll(region_in, time_frame, outfile=None):
           region_in  - input a region defined either by the boundary of a grid from a netcdf grid file (so, a
                        filename / filepath), or a tuple of 4 float numbers representing lower left lat-lon and
                        upper right lat-lon, thus defining a region via a lat-lon box
-          time_frame - a time frame in the form 'yyyy-mm-dd:yyyy-mm-dd' (in UTC time zone)
+          time_frame - a time frame in the form 'yyyy-mm-dd:yyyy-mm-dd' (in UTC time zone);
+                       NOTE: If 'region_in' is a netCDF dataset, and 'variable' is set to a named variable
+                       belonging to the dataset, time_frame can be left undefined, and the time limits on the 
+                       variable will be referenced from the dataset. Otherwise, this parameter is REQUIRED.
           outfile    - an optional argument that, when provided as a string, will output the data into a netcdf file
                        with the filename given by the string
 
@@ -205,6 +211,19 @@ def buoycoll(region_in, time_frame, outfile=None):
     Usage: e.g., dataset = buoycoll('Mexico_Beach_grd2.nc', '2023-02-24:2023-02-28', 'buoys1.nc')
             or   dataset = buoycoll((24.43, -74.32, 25.76, -72.87), '2022-07-10:2022-10-18')"""
 
+    # Check whether time_frame is given or can be defined
+    if time_frame is None:
+        if variable is None:
+            print("The parameter 'time_frame' must be set, or if not, 'region_in' must be a netCDF file and 'variable' must be"
+                "a variable that is defined in that file with a corresponding time coordinate.")
+            return None
+        dmodel = xr.open_dataset(region_in)
+        t1 = dmodel[dmodel[variable].time]
+        if isinstance(t1[0].values,np.datetime64):
+            time_frame = str(t1[0].values).split('T')[0] + ":" + str(t1[-1].values).split('T')[0]
+        else:
+            print(f"can not find time data for variable {variable} in {region_in}")
+            return None
     # gather the list of active stations, and their lons / lats
     dact = pd.read_xml('https://www.ndbc.noaa.gov/activestations.xml')
     lats = dact.lat.values
@@ -221,12 +240,10 @@ def buoycoll(region_in, time_frame, outfile=None):
         print(f'no buoys found in the region in given by {region_in}')
         sys.exit(1)
 
-    start = time_frame.split(':')[0]
-    end = time_frame.split(':')[1]
+
 
     print(buoy1)
-    print(f'start: {start}')
-    print(f'end: {end}')
+    print(f'time frame: {time_frame}')
 
     # grab directory contents for the main buoy directories (the ones with actively reporting buoys for the most part)
     smname = 'https://dods.ndbc.noaa.gov/thredds/catalog/data/stdmet/catalog.html'
@@ -254,7 +271,7 @@ def buoycoll(region_in, time_frame, outfile=None):
     # Loop through the buoys found, and gather the outputs within the time frame specified into the xarray Dataset ds1
     for buoy in buoy1:
         if buoy in dsm.Dataset.values:
-            dout = ndbcget(buoy, 'stdmet', (start, end))
+            dout = ndbcget(buoy, 'stdmet', time_frame)
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -273,7 +290,7 @@ def buoycoll(region_in, time_frame, outfile=None):
                 ds1['buoy_' + buoy].attrs['standard_name'] = 'lat,lon'
 
         if buoy in doc.Dataset.values:
-            dout = ndbcget(buoy, 'ocean', (start, end))
+            dout = ndbcget(buoy, 'ocean', time_frame)
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -293,7 +310,7 @@ def buoycoll(region_in, time_frame, outfile=None):
                     ds1['buoy_' + buoy].attrs['standard_name'] = 'lat,lon'
 
         if buoy in dsw.Dataset.values:
-            dout = ndbcget(buoy, 'swden', (start, end))
+            dout = ndbcget(buoy, 'swden', time_frame)
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -314,7 +331,7 @@ def buoycoll(region_in, time_frame, outfile=None):
                     ds1['buoy_' + buoy].attrs['standard_name'] = 'lat,lon'
 
         if buoy in dpw.Dataset.values:
-            dout = ndbcget(buoy, 'pwind', (start, end))
+            dout = ndbcget(buoy, 'pwind', time_frame)
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -334,7 +351,7 @@ def buoycoll(region_in, time_frame, outfile=None):
                     ds1['buoy_' + buoy].attrs['standard_name'] = 'lat,lon'
 
         if buoy in dcw.Dataset.values:
-            dout = ndbcget(buoy, 'cwind', (start, end))
+            dout = ndbcget(buoy, 'cwind', time_frame)
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -500,6 +517,10 @@ def gcdist(startlat, startlon, endlat, endlon):
     return dist
 
 def llfind(lat1,lon1,lats1,lons1, maxdist=3):
+    if type(lats1) is xr.DataArray:
+        lats1 = lats1.values
+    if type(lons1) is xr.DataArray:
+        lons1 = lons1.values
     lons1a = lons1[~np.isnan(lons1)]
     lats1a = lats1[~np.isnan(lats1)]
     blah = list(zip(lats1a, lons1a))
@@ -512,8 +533,11 @@ def llfind(lat1,lon1,lats1,lons1, maxdist=3):
 
     idx = np.argwhere(((ng11.xy[0] == lats1) & (ng11.xy[1] == lons1))).squeeze()
     
-    dist1 = gcdist(lats1.flatten()[0],lons1.flatten()[0],lats1.flatten()[1],lons1.flatten()[1])
-    max1 = maxdist*dist1
+    dist1 = gcdist(blah[0][0],blah[0][1],blah[1][0],blah[1][1])
+    mididx1 = len(blah)//2
+    dist2 = gcdist(blah[mididx1][0],blah[mididx1][1],blah[mididx1+1][0],blah[mididx1+1][1])
+    mindist1 = min(dist1,dist2)
+    max1 = maxdist*mindist1
     
     if gcdist(lat1,lon1,lats1[tuple(idx)],lons1[tuple(idx)]) > max1:
         return None
@@ -528,7 +552,7 @@ def d64(tarray):
         tout[ti] = np.datetime64(tarray[ti])
     return tout
 
-def get_vars(ds_in, varpatt, coordvars=False):
+def get_vars(ds_in, varpatt, coordvars=False, return_ds=False):
     # get a boolean array indexing the locations of variables matching 'varpatt'
     if coordvars:
         idx1 = [varpatt in x for x in list(ds_in.variables.keys())]
@@ -536,8 +560,11 @@ def get_vars(ds_in, varpatt, coordvars=False):
     else:
         idx1 = [varpatt in x for x in list(ds_in)]
         idxarr1 = np.array(list(ds_in))[idx1]
-    ds_out = ds_in[idxarr1]
-    return ds_out
+    if return_ds is True:
+        ds_out = ds_in[idxarr1]
+        return ds_out
+    else:
+        return list(idxarr1)
 
 
 def my_fmt_xdate(ax=None,rot=30,hal='right'):
