@@ -80,7 +80,10 @@ def bfind(region_in, lats, lons):
     if lats.shape[0] != lons.shape[0]:
         raise Exception('lats and lons must be 1-d vectors and have equal length')
 
-    poly1 = poly_region(region_in)
+    if isinstance(region_in,geometry.Polygon):
+        poly1 = region_in
+    else:
+        poly1 = poly_region(region_in)
 
     inside = np.zeros((lats.shape[0],), dtype=bool)
 
