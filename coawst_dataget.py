@@ -1,3 +1,18 @@
+"""This module provides a variety of functions
+that gather and process data from various NOAA et al. websites,
+and also provides methods for comparing these observational data to
+supplied model data.
+
+The main functions that are used include:
+
+ndbcget()
+buoycoll()
+wlget()
+wlcoll()
+wlqckcomp()
+wlqckcomp2()
+"""
+
 # Imports
 import pandas as pd
 import xarray as xr
@@ -13,10 +28,11 @@ from shapely.geometry import Point, MultiPoint
 from shapely.ops import nearest_points
 import matplotlib.pyplot as plt
 
-def poly_region(region_in):
+def poly_region(region_in, latlon=True):
     """Returns a shapely polygon defined either by the boundary of a grid from a netcdf grid file (so, a
     filename / filepath) or a tuple of 4 float numbers representing lower left lat-lon and
-    upper right lat-lon, thus defining the polygon of a lat-lon box."""
+    upper right lat-lon, thus defining the polygon of a lat-lon box. If parameter 'latlon' is False, then
+    the coordinates are treated as regular x,y in e.g. a Mercator projection (instead of y,x, lat then lon)."""
 
     if type(region_in) is str:
         gridfile = region_in
@@ -48,16 +64,28 @@ def poly_region(region_in):
         return p1
 
     elif boundbox is not None:
-        y1, x1, y2, x2 = boundbox
-        print(f'y1: {y1}')
-        print(f'x1: {x1}')
-        print(f'y2: {y2}')
-        print(f'x2: {x2}')
-        xy = ((x1, y1), (x2, y2))
-        axy = np.array(xy)
-        xs = [axy[0, 0], axy[1, 0], axy[1, 0], axy[0, 0]]
-        ys = [axy[0, 1], axy[0, 1], axy[1, 1], axy[1, 1]]
-        p1 = geometry.Polygon(list(zip(xs, ys)))
+        if latlon:
+            y1, x1, y2, x2 = boundbox
+            print(f'y1: {y1}')
+            print(f'x1: {x1}')
+            print(f'y2: {y2}')
+            print(f'x2: {x2}')
+            xy = ((x1, y1), (x2, y2))
+            axy = np.array(xy)
+            xs = [axy[0, 0], axy[1, 0], axy[1, 0], axy[0, 0]]
+            ys = [axy[0, 1], axy[0, 1], axy[1, 1], axy[1, 1]]
+            p1 = geometry.Polygon(list(zip(xs, ys)))
+        else:
+            x1, y1, x2, y2 = boundbox
+            print(f'y1: {y1}')
+            print(f'x1: {x1}')
+            print(f'y2: {y2}')
+            print(f'x2: {x2}')
+            xy = ((x1, y1), (x2, y2))
+            axy = np.array(xy)
+            xs = [axy[0, 0], axy[1, 0], axy[1, 0], axy[0, 0]]
+            ys = [axy[0, 1], axy[0, 1], axy[1, 1], axy[1, 1]]
+            p1 = geometry.Polygon(list(zip(xs, ys)))
 
         return p1
 
