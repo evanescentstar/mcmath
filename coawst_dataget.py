@@ -27,6 +27,7 @@ import os
 from shapely.geometry import Point, MultiPoint
 from shapely.ops import nearest_points
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
 def poly_region(region_in, latlon=True):
     """Returns a shapely polygon defined either by the boundary of a grid from a netcdf grid file (so, a
@@ -619,12 +620,23 @@ def wlqckcomp(model_file, variable, time_frame=None, interpol=None, butterord=No
     list1 = list(get_vars(ds1,'wl_'))
 
     if 'mask_rho' in list(dmod):
-        if dmod['mask_rho'].values.any():
-            idx2 = np.where(dmod['mask_rho'].values == 0)
+        if 'wetdry_mask_rho' in list(dmod):
+            if dmod['mask_rho'].values.any():
+                dwdmn = dmod.wetdry_mask_rho.min('ocean_time')
+                idx2 = np.where((dmod['mask_rho'].values == 0) | (dwdmn == 0))
+            else:
+                idx2 = np.where(dmod1[0].isnull())
+        else:
+            if dmod['mask_rho'].values.any():
+                idx2 = np.where(dmod['mask_rho'].values == 0)
+            else:
+                idx2 = np.where(dmod1[0].isnull())
+    else:
+        if 'wetdry_mask_rho' in list(dmod):
+            dwdmn = dmod.wetdry_mask_rho.min('ocean_time')
+            idx2 = np.where((dmod1[0].isnull()) | (dwdmn == 0))
         else:
             idx2 = np.where(dmod1[0].isnull())
-    else:
-        idx2 = np.where(dmod1[0].isnull())
 
     # find lat / lon / time variable names for 'variable' in model data
     lat_ish = ['lat' in x for x in dmod1.coords]
@@ -756,12 +768,23 @@ def wlqckcomp2(model_file, variable, time_frame=None, interpol=None, butterord=N
     list1 = list(get_vars(ds1,'wl_'))
 
     if 'mask_rho' in list(dmod):
-        if dmod['mask_rho'].values.any():
-            idx2 = np.where(dmod['mask_rho'].values == 0)
+        if 'wetdry_mask_rho' in list(dmod):
+            if dmod['mask_rho'].values.any():
+                dwdmn = dmod.wetdry_mask_rho.min('ocean_time')
+                idx2 = np.where((dmod['mask_rho'].values == 0) | (dwdmn == 0))
+            else:
+                idx2 = np.where(dmod1[0].isnull())
+        else:
+            if dmod['mask_rho'].values.any():
+                idx2 = np.where(dmod['mask_rho'].values == 0)
+            else:
+                idx2 = np.where(dmod1[0].isnull())
+    else:
+        if 'wetdry_mask_rho' in list(dmod):
+            dwdmn = dmod.wetdry_mask_rho.min('ocean_time')
+            idx2 = np.where((dmod1[0].isnull()) | (dwdmn == 0))
         else:
             idx2 = np.where(dmod1[0].isnull())
-    else:
-        idx2 = np.where(dmod1[0].isnull())
 
     # find lat / lon / time variable names for 'variable' in model data
     lat_ish = ['lat' in x for x in dmod1.coords]
@@ -778,7 +801,7 @@ def wlqckcomp2(model_file, variable, time_frame=None, interpol=None, butterord=N
 
     ix = 0
     print(f'station list is {list1}')
-    out1 = np.zeros((len(list1), 4))
+    out1 = np.zeros((len(list1), 5))
     for station in list1:
         print(f'on station {station}')
         lat1 = ds1[station].lat
@@ -786,6 +809,7 @@ def wlqckcomp2(model_file, variable, time_frame=None, interpol=None, butterord=N
         time1 = ds1[ds1[station].time]
         tstr = ds1[station].time
         locat1 = ds1[station].locat
+        station1 = np.int32(ds1[station].station)
 
         idx1 = llfind(lat1, lon1, modlat, modlon)
         if idx1 is None:
@@ -808,6 +832,7 @@ def wlqckcomp2(model_file, variable, time_frame=None, interpol=None, butterord=N
         out1[ix,1] = lon1
         out1[ix,2] = dmod1[:, idx1[0], idx1[1]].mean() - wldata.mean()
         out1[ix,3] = dmod1[:, idx1[0], idx1[1]].std(ddof=1) / wldata.std(ddof=1)
+        out1[ix, 4] = station1
         ix = ix + 1
 
     cpc = crs.PlateCarree()
@@ -899,3 +924,320 @@ def wlmodcmp1(model_file, variable, time_frame=None, datum='NAVD', product='wate
         moddat = dmod[variable][idxt]
 
     return ds1,moddat
+
+
+def plot_wvht_1(buoy, dm, ds=None, save=False, ax=None):
+    """Plots a single panel time series of obs NDBC buoy significant wave height
+     compared to that from a model dataset, usually from ROMS (apologies if this doesn't
+     work for some other netcdf dataset).
+     Parameters:
+         buoy - 5-digit code, in a string, for the ndbc buoy (e.g., '41004', 'sipf1')
+         dm - model data, provided in an xarray dataset (i.e., no file name here, just
+              open the file and provide the xarray dataset for this function)
+         ds - optionally provide the dataset of gathered buoys from cdg.buoycoll(); if
+              blank / None, this will look up this one buoy on-the-fly)
+
+    E.g.,
+    > import coawst_dataget as cdg
+    > ds1 = cdg.buoycoll('https://geoport.whoi.edu/thredds/dodsC/vortexfs1/usgs/Projects/Michael2018/michael31/qck/michael_ocean_gomsab_qck.nc', variable='zeta')
+    > dmod = xr.open_dataset('https://geoport.whoi.edu/thredds/dodsC/vortexfs1/usgs/Projects/Michael2018/michael31/qck/michael_ocean_gomsab_qck.nc')
+    > plot_wvht_1('41004',dmod,ds1)
+     """
+    buoyvar = 'buoy_' + buoy
+    timevar = 'time_' + buoy
+    lat, lon = ds[buoyvar]
+    idxa, idxo = cdg.llfind(lat, lon, dm.lat_rho, dm.lon_rho)
+    hw1 = dm['Hwave'][:, idxa, idxo]
+    ht1 = dm[hw1.time]
+
+    bd1 = ds['wave_height_' + buoy]
+
+    if ax is None:
+        fig1 = plt.figure()
+        ax1 = fig1.add_axes((0.12, 0.125, 0.8, 0.8))
+    else:
+        fig1 = ax.get_figure()
+        ax1 = plt.sca(ax)
+    l1 = bd1.dropna(timevar).plot(ax=ax1)
+    l2 = hw1.plot(ax=ax1)
+
+    bd1a = bd1.dropna(timevar)
+    bt1 = bd1a[timevar]
+    bt1a = mpl.dates.date2num(bt1)
+    ht1a = mpl.dates.date2num(ht1)
+    # get interpolation function
+    fi1 = sp.interpolate.interp1d(bt1a, bd1a)
+    # get location (time location) of interpolated values
+    arr1a = np.where((ht1 < bt1[-1]) & (ht1 > bt1[0]))
+    # get interpolated values of bd1
+    bd2 = fi1(ht1a[arr1a])
+    # Now we can calculate a proper RMSE
+    rmse1 = np.sqrt((((hw1[arr1a] - bd2) ** 2) / bd2.var()).mean())
+
+    modelstr = f'model, rmse = {rmse1:0.2f}'
+    plt.legend(['obs', modelstr], loc=2)
+    titlestr = "Hs @ " + ds[buoyvar].comment + f' ({buoy})'
+    plt.title(titlestr, size=10)
+
+    if save is True:
+        if not os.path.exists('wvht_out'):
+            os.mkdir('wvht_out')
+        savestr = 'wvht_out/wvht_' + buoy
+        plt.savefig(savestr, dpi=100)
+        plt.close()
+        return None
+    return fig1, ax1
+
+
+def to_moment(R1, R2, alpha1, alpha2):
+    """
+    Convert NDBC directional parameters r1, r2, theta1, theta2 to Fourier coeffs. a1, a2, b1, and b2.
+
+    This code was written by Pieter Smit and provided courtesy of Isabel Houghton, Sofar Ocean.
+
+    Note: from the NDBC website
+
+    The R1 and R2 values in the monthly and yearly historical data files are scaled by 100,
+    a carryover from how the data are transported to the archive centers. The units are
+    hundredths, so the R1 and R2 values in those files should be multiplied by 0.01.
+
+    May have to multiply R1/R2 with a 100 depending on source
+
+    :param R1:
+    :param R2:
+    :param alpha1:
+    :param alpha2:
+    :return:
+    """
+    to_rad = np.pi / 180
+    eps = 1e-16
+    angle1 = (270 - alpha1) * to_rad
+    angle2 = (540 - 2 * alpha2) * to_rad
+
+    a0 = 1 / (2 * np.pi) + eps
+    a1 = R1 * np.cos(angle1) / a0
+    b1 = R1 * np.sin(angle1) / a0
+    a2 = R2 * np.cos(angle2) / a0
+    b2 = R2 * np.sin(angle2) / a0
+
+    return a1, b1, a2, b2
+
+
+def calc_theta_mean_a1b1(a1, b1, freqvar):
+    # mean direction (degrees)
+    # no weighting
+    # Le Merle et al., 2021 eqn 5; Isabels code, SoFar manual
+    a1bar = np.ndarray(a1.shape[0])
+    b1bar = np.ndarray(a1.shape[0])
+    for t1 in range(a1.shape[0]):
+        a1bar[t1] = np.trapz(a1[t1].dropna(freqvar), a1[t1].dropna(freqvar)[freqvar])
+        b1bar[t1] = np.trapz(b1[t1].dropna(freqvar), b1[t1].dropna(freqvar)[freqvar])
+    thetam = 270. - (180. / np.pi) * np.arctan2(b1bar, a1bar)
+    return thetam
+
+
+def plot_wvdir_1(buoy, dm, ds=None, save=False, ax=None):
+    """Plots a single panel time series of obs NDBC buoy significant wave height
+     compared to that from a model dataset, usually from ROMS (apologies if this doesn't
+     work for some other netcdf dataset).
+     Parameters:
+         buoy - 5-digit code, in a string, for the ndbc buoy (e.g., '41004', 'sipf1')
+         dm - model data, provided in an xarray dataset (i.e., no file name here, just
+              open the file and provide the xarray dataset for this function)
+         ds - optionally provide the dataset of gathered buoys from cdg.buoycoll(); if
+              blank / None, this will look up this one buoy on-the-fly)
+    E.g.,
+    > import coawst_dataget as cdg
+    > ds1 = cdg.buoycoll('https://geoport.whoi.edu/thredds/dodsC/vortexfs1/usgs/Projects/Michael2018/michael31/qck/michael_ocean_gomsab_qck.nc', variable='zeta')
+    > dmod = xr.open_dataset('https://geoport.whoi.edu/thredds/dodsC/vortexfs1/usgs/Projects/Michael2018/michael31/qck/michael_ocean_gomsab_qck.nc')
+    > plot_wvdir_1('41004',dmod,ds1)
+    """
+    buoyvar = 'buoy_' + buoy
+    timevar = 'time_' + buoy + '_sw'
+    freqvar = 'frequency_' + buoy
+    pdirvar = 'principal_wave_dir_' + buoy
+    mdirvar = 'mean_wave_dir_' + buoy
+    r1var = 'wave_spectrum_r1_' + buoy
+    r2var = 'wave_spectrum_r2_' + buoy
+    lat, lon = ds[buoyvar]
+    idxa, idxo = cdg.llfind(lat, lon, dm.lat_rho, dm.lon_rho)
+    dw1 = dm['Dwave'][:, idxa, idxo]
+    dwt1 = dm[dw1.time]
+    mc1 = to_moment(ds[r1var], ds1[r2var],
+                    ds[mdirvar], ds[pdirvar])
+    bd1 = calc_theta_mean_a1b1(mc1[0], mc1[1], freqvar)
+    bd2 = np.where(bd1 > 360, bd1 - 360, bd1)
+
+    if ax is None:
+        fig1 = plt.figure()
+        ax1 = fig1.add_axes((0.12, 0.125, 0.8, 0.8))
+    else:
+        fig1 = ax.get_figure()
+        ax1 = plt.sca(ax)
+    l1 = plt.plot(mc1[0][timevar], bd2)
+    l2 = dw1.plot(ax=ax1)
+
+    # modelstr = f'model, rmse = {rmse1:0.2f}'
+    modelstr = 'model'
+    plt.legend(['obs', modelstr], loc=2)
+    titlestr = "Mean wave dir @ " + ds[buoyvar].comment + f' ({buoy})'
+    plt.title(titlestr, size=9)
+
+    if save is True:
+        if not os.path.exists('wvdir_out'):
+            os.mkdir('wvdir_out')
+        savestr = 'wvdir_out/wvdir_' + buoy
+        plt.savefig(savestr, dpi=100)
+        plt.close()
+        return None
+    return fig1, ax1
+
+
+def plot_wvpp_1(buoy, dm, ds=None, save=False, ax=None):
+    buoyvar = 'buoy_' + buoy
+    timevar = 'time_' + buoy + '_sw'
+    freqvar = 'frequency_' + buoy
+    swdenvar = 'spectral_wave_density_' + buoy
+    lat, lon = ds[buoyvar]
+    idxa, idxo = cdg.llfind(lat, lon, dm.lat_rho, dm.lon_rho)
+    pw1 = dm['Pwave_top'][:, idxa, idxo]
+    pwt1 = dm[pw1.time]
+    bd1 = calc_peak_T(ds[swdenvar], ds[freqvar])
+
+    if ax is None:
+        fig1 = plt.figure()
+        ax1 = fig1.add_axes((0.12, 0.125, 0.8, 0.8))
+    else:
+        fig1 = ax.get_figure()
+        ax1 = plt.sca(ax)
+    l1 = plt.plot(ds[timevar], bd1)
+    l2 = pw1.plot(ax=ax1)
+
+    # modelstr = f'model, rmse = {rmse1:0.2f}'
+    modelstr = 'model'
+    plt.legend(['obs', modelstr], loc=2)
+    titlestr = "Peak wave period @ " + ds[buoyvar].comment + f' ({buoy})'
+    plt.title(titlestr, size=9)
+
+    if save is True:
+        if not os.path.exists('wvdir_out'):
+            os.mkdir('wvdir_out')
+        savestr = 'wvdir_out/wvdir_' + buoy
+        plt.savefig(savestr, dpi=100)
+        plt.close()
+        return None
+    return fig1, ax1
+
+
+def calc_Qp_1d(spec1d, frequencies):
+    # frequency peakedness () Le Merle et al., 2021 eqn 4 based on Goda (1976)
+    return 2. * np.trapz(spec1d ** 2, frequencies) / (np.trapz(spec1d, frequencies)) ** 2
+
+
+def calc_m0_1d(spec1d, frequencies):
+    return np.trapz(spec1d, frequencies)
+
+
+def calc_m1_1d(spec1d, frequencies):
+    return np.trapz(spec1d * frequencies, frequencies)
+
+
+def calc_peak_T(spec1d, frequencies):
+    freqout = np.ndarray(spec1d.shape[0])
+    for f1 in range(freqout.size):
+        maxfilt = spec1d[f1] == spec1d[f1].max()
+        freqout[f1] = frequencies[maxfilt]
+    return 1.0 / freqout
+
+def specplt(Sfa, dirs=None, freqs=None, cmap=cm.Spectral_r, ax = None, cb=True):
+    """Sfa = spectral density function as a function of freq and dir
+    dirs = directions for Sfa data, can be omitted if Sfa contains this info (xarray)
+    freqs = same as dirs but are the frequencies
+    cmap = colormap used to plot the spectral intensity
+    """
+    if ax is None:
+        ax = plt.subplot(projection='polar')
+    ax.set_theta_direction(-1)
+    ax.set_theta_offset(np.pi / 2.0)
+    ax.set_rscale('log')
+    lev1a = array([0.01])
+    lev1b = arange(0.1, 0.55, 0.1)
+    lev1 = np.append(lev1a, lev1b)
+    if dirs is None:
+        dirs = Sfa.dir
+    if freqs is None:
+        freqs = Sfa.freq
+    cf1 = ax.contourf(deg2rad(dirs), freqs, Sfa, cmap=cm.Spectral_r, vmin=0.05, levels=lev1, extend='max')
+    ax.set_ylim((0.05, 0.4))
+    ax.set_yscale('log')
+    ax.set_rticks([0.04, 0.05, 0.1, 0.2, 0.3, 0.4])
+    ax.set_xticklabels(['', '45', '', '135', '', '225', '', '315'])
+    ax.set_yticklabels(['', '0.05', '0.1', '0.2', '0.3', '0.4 Hz'], fontdict={'fontsize': 7})
+    ax.yaxis.set_minor_formatter('')
+    if cb:
+        plt.colorbar(cf1)
+    return cf1
+
+
+def my_efth(ds1):
+    import numpy as np
+    from scipy.special import cosdg
+
+    degperrad = 180 / np.pi
+    dirs1 = ds1['mean_wave_dir']
+    specs1 = ds1['spectral_wave_density']
+    r1 = ds1.wave_spectrum_r1
+    r2 = ds1.wave_spectrum_r2
+    pdirs1 = ds1.principal_wave_dir
+    freqs1 = ds1.frequency
+
+    shp1 = r1.shape
+    shp1a = np.append(shp1, 1)
+    alph = np.arange(0, 365, 10)
+
+    Dfa = (0.5 + r1.values.reshape(shp1a) * cosdg(
+        alph.reshape(1, 1, alph.size) - dirs1.values.reshape(shp1a)) +
+           r2.values.reshape(shp1a) * cosdg(
+                2 * (alph.reshape(1, 1, alph.size) - pdirs1.values.reshape(shp1a)))) / np.pi
+
+    Sfa = specs1.values.reshape(shp1a) * Dfa
+    Sfa1 = np.ma.masked_invalid(Sfa).squeeze()
+    Sfa1 = Sfa1 / degperrad
+    dsout = xr.Dataset()
+    ds1 = ds1.rename({'frequency': 'freq'})
+    dsout['efth'] = xr.DataArray(data=Sfa1,
+                                dims=['time', 'freq', 'dir'],
+                                coords={'time' : ds1.time, 'freq': ds1.freq, 'dir': alph})
+
+    return dsout
+
+def ndbcspectxt(buoy,year):
+    import glob
+    import wavespectra as ws
+    f_r1 = glob.glob(buoy + 'j' + year + '*.txt')[0]
+    f_r2 = glob.glob(buoy + 'k' + year + '*.txt')[0]
+    f_a1 = glob.glob(buoy + 'd' + year + '*.txt')[0]
+    f_a2 = glob.glob(buoy + 'i' + year + '*.txt')[0]
+    f_swd = glob.glob(buoy + 'w' + year + '*.txt')[0]
+    ds1 = xr.Dataset()
+    w1_r1 = ws.read_ndbc_ascii(f_r1)
+    if w1_r1.efth[0][0].squeeze() > 10:
+        ds1['wave_spectrum_r1'] = w1_r1.efth / 100.
+    else:
+        ds1['wave_spectrum_r1'] = w1_r1.efth
+    w1_r2 = ws.read_ndbc_ascii(f_r2)
+    if w1_r2.efth[0][0].squeeze() > 10:
+        ds1['wave_spectrum_r2'] = w1_r2.efth / 100.
+    else:
+        ds1['wave_spectrum_r2'] = w1_r2.efth
+
+    w1_a1 = ws.read_ndbc_ascii(f_a1)
+    ds1['mean_wave_dir'] = w1_a1.efth
+    w1_a2 = ws.read_ndbc_ascii(f_a2)
+    ds1['principal_wave_dir'] = w1_a2.efth
+    w1_swd = ws.read_ndbc_ascii(f_swd)
+    ds1['spectral_wave_density'] = w1_swd.efth
+
+    ds1 = ds1.squeeze()
+    ds1 = ds1.rename({'freq': 'frequency'})
+    return ds1
