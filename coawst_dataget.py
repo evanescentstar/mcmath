@@ -28,6 +28,7 @@ from shapely.geometry import Point, MultiPoint
 from shapely.ops import nearest_points
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import matplotlib as mpl
 
 def poly_region(region_in, latlon=True):
     """Returns a shapely polygon defined either by the boundary of a grid from a netcdf grid file (so, a
