@@ -941,12 +941,12 @@ def plot_wvht_1(buoy, dm, ds=None, save=False, ax=None):
     > import coawst_dataget as cdg
     > ds1 = cdg.buoycoll('https://geoport.whoi.edu/thredds/dodsC/vortexfs1/usgs/Projects/Michael2018/michael31/qck/michael_ocean_gomsab_qck.nc', variable='zeta')
     > dmod = xr.open_dataset('https://geoport.whoi.edu/thredds/dodsC/vortexfs1/usgs/Projects/Michael2018/michael31/qck/michael_ocean_gomsab_qck.nc')
-    > plot_wvht_1('41004',dmod,ds1)
+    > cdg.plot_wvht_1('41004',dmod,ds1)
      """
     buoyvar = 'buoy_' + buoy
     timevar = 'time_' + buoy
     lat, lon = ds[buoyvar]
-    idxa, idxo = cdg.llfind(lat, lon, dm.lat_rho, dm.lon_rho)
+    idxa, idxo = llfind(lat, lon, dm.lat_rho, dm.lon_rho)
     hw1 = dm['Hwave'][:, idxa, idxo]
     ht1 = dm[hw1.time]
 
