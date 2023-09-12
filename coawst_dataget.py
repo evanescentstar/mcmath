@@ -610,8 +610,11 @@ def my_fmt_xdate(ax=None,rot=30,hal='right'):
 
     return None
 
-def wlqckcomp(model_file, variable, time_frame=None, interpol=None, butterord=None, datum='NAVD', product='water_level'):
-
+def wlqckcomp(model_file, variable='zeta', time_frame=None, interpol=None, butterord=None, datum='NAVD', product='water_level'):
+    from matplotlib import font_manager
+    pltsubdir = "wlcmp/"
+    if not os.path.exists(pltsubdir):
+        os.mkdir(pltsubdir)
     # have to open a separate variable on the model file so I have access to mask data
     # wlmodcmp1 is great for the graphing part, but only returns the one variable in dmod1
     dmod = xr.open_dataset(model_file)
@@ -653,6 +656,7 @@ def wlqckcomp(model_file, variable, time_frame=None, interpol=None, butterord=No
     modlat[xr.DataArray(idx2[0]),xr.DataArray(idx2[1])] = np.nan
 
     print(f'station list is {list1}')
+    prop1 = font_manager.FontProperties(size=8)
     for station in list1:
         lat1 = ds1[station].lat
         lon1 = ds1[station].lon
@@ -660,9 +664,6 @@ def wlqckcomp(model_file, variable, time_frame=None, interpol=None, butterord=No
         tstr = ds1[station].time
         locat1 = ds1[station].locat
 
-        idx1 = llfind(lat1, lon1, modlat, modlon)
-        if idx1 is None:
-            continue
         tout = d64(time1.values)
         wldata = ds1[station]
         if interpol is not None:
@@ -677,25 +678,46 @@ def wlqckcomp(model_file, variable, time_frame=None, interpol=None, butterord=No
             else:
                 wldata = wli.copy()
 
+        idx1 = llfind(lat1, lon1, modlat, modlon)
+        if idx1 is None:
+            continue
+
+        moddat = dmod1[1:, idx1[0], idx1[1]]
+        stdrat = wldata.std() / moddat.std()
+        
+        modlontmp = np.array(modlon)
+        modlattmp = np.array(modlat)
+        while stdrat > 10:
+            modlontmp[idx1[0], idx1[1]] = np.nan
+            modlattmp[idx1[0], idx1[1]] = np.nan
+            idx1 = llfind(lat1, lon1, modlattmp, modlontmp)
+            if idx1 is None:
+                break
+            moddat = dmod1[1:, idx1[0], idx1[1]]
+            stdrat = wldata.std() / moddat.std()
+        
+        if idx1 is None:
+            continue
+
         moddat = dmod1[:, idx1[0], idx1[1]]
         plt.figure(figsize=(6,3))
         l1 = plt.plot(modtime, moddat, '-')
         l2 = plt.plot(tout, wldata, '-')
 
         ltxt1 = 'model' + f' - mean:{moddat.mean().values: .2f}'
-        ltxt2 = 'data' + f' - mean: {wldata.mean(): .2f}'
-        plt.legend([ltxt1, ltxt2], loc=2)
+        ltxt2 = 'obs' + f' - mean: {wldata.mean(): .2f}'
+        plt.legend([ltxt1, ltxt2], loc=2, prop=prop1)
 
-        titlstr = f'Comparison of data from {dmod.file} at station {ds1[station].station}\nlocation: {locat1}  ' \
+        titlstr = f'Comparison of data from {dmod.file} to obs at station {ds1[station].station}\nlocation: {locat1}  ' \
                   f'lat: {lat1}  lon: {lon1}, Datum: {datum}'
-        plt.title(titlstr, size=9)
+        plt.title(titlstr, size=8)
 
         xtl = plt.gca().get_xticklabels()
-        plt.setp(xtl, 'size', 9)
+        plt.setp(xtl, 'size', 7)
         my_fmt_xdate(None, rot=30, hal='right')
         plt.ylabel('water level (m)')
         
-        fileout = 'plot-tst/wlcmp-' + ds1[station].station
+        fileout = pltsubdir + 'wlcmp-' + ds1[station].station
         plt.savefig(fileout, dpi=200)
 
         plt.close()
@@ -756,14 +778,19 @@ def wl1station(station, model_file, variable, time_frame, datum='NAVD'):
 
     return duh1,moddat
 
-def wlqckcomp2(model_file, variable, time_frame=None, interpol=None, butterord=None, datum='NAVD', product='water_level'):
+def wlqckcomp2(model_file, variable='zeta', time_frame=None, interpol=None, butterord=None, datum='NAVD', product='water_level', annotsz=6, ds1=None, dmod=None):
     import cartopy.crs as crs
     import matplotlib.cm as cm
-
-    # have to open a separate variable on the model file so I have access to mask data
-    # wlmodcmp1 is great for the graphing part, but only returns the one variable in dmod1
-    dmod = xr.open_dataset(model_file)
-    ds1, dmod1 = wlmodcmp1(model_file, variable, time_frame=time_frame, datum=datum, product=product)
+    pltsubdir = "wlcmp/"
+    if not os.path.exists(pltsubdir):
+        os.mkdir(pltsubdir)
+    if (ds1 is None) or (dmod is None):
+        # have to open a separate variable on the model file so I have access to mask data
+        # wlmodcmp1 is great for the graphing part, but only returns the one variable in dmod1
+        dmod = xr.open_dataset(model_file)
+        ds1, dmod1 = wlmodcmp1(model_file, variable, time_frame=time_frame, datum=datum, product=product)
+    else:
+        dmod1 = dmod[variable]
 
     # find all variables matching wl_* and stick them in list for iteration
     list1 = list(get_vars(ds1,'wl_'))
@@ -840,39 +867,81 @@ def wlqckcomp2(model_file, variable, time_frame=None, interpol=None, butterord=N
 
     fig1 = plt.figure(figsize=(6.4,4.8))
     ax1 = fig1.add_axes((0.08,0.05,0.92,0.92), projection=cpc)
-    ax1.coastlines()
+    xlo = dmod.lon_rho.min()
+    xhi = dmod.lon_rho.max()
+    ylo = dmod.lat_rho.min()
+    yhi = dmod.lat_rho.max()
+    ax1.set_extent((xlo, xhi, ylo, yhi))
+    ax1.coastlines(color='lightgray', zorder=0)
 
-    c1=ax1.scatter(out1[:,1],out1[:,0],c=out1[:,2],s=30,cmap=cm.seismic,vmin=-.6,vmax=.6)
-    plt.colorbar(c1)
-    plt.title(f'Model minus NOAA tide gauges: mean difference, datum: {datum}', size=11)
+    out1a = out1[np.where(out1[:, 4] != 0)]
+
+    c1 = ax1.scatter(out1a[:, 1], out1a[:, 0], c=out1a[:, 2], s=30, cmap=cm.seismic, vmin=-.6, vmax=.6, zorder=3)
+
+    cbar = plt.colorbar(c1)
+    ticklabs = cbar.ax.get_yticklabels()
+    cbar.ax.set_yticklabels(ticklabs, fontsize=8)
+
+    for ix in range(out1a.shape[0]):
+        ix2 = ix % 2
+        if ix2 == 1:
+            ax1.annotate(str(int(out1a[ix, 4])), (out1a[ix, 1], out1a[ix, 0]),
+                         xytext=(out1a[ix, 1] + 0.07, out1a[ix, 0]),
+                         size=annotsz, zorder=5)
+        else:
+            ax1.annotate(str(int(out1a[ix, 4])), (out1a[ix, 1], out1a[ix, 0]),
+                         xytext=(out1a[ix, 1] - 0.07, out1a[ix, 0]),
+                         size=annotsz, ha='right', zorder=5)
+    titlstr = f'Model: {model_file}\nModel minus NOAA tide gauges: mean difference, datum: {datum}'
+    plt.title(titlstr, size=6)
     anntxt = f"min = {out1[:,2].min(): .2f} m\nmax = {out1[:,2].max(): .2f} m\nmean = {out1[:,2].mean(): .2f} m"
-    ax1.annotate(anntxt, (0.1,0.8), xycoords='figure fraction')
+    ax1.annotate(anntxt, (0.1,0.8), xycoords='axes fraction', size=8)
     gl = ax1.gridlines(crs=cpc, draw_labels=True,
                       linewidth=2, color='gray', alpha=0, linestyle='--')
+    gl.xlabel_style = {'size': 8}
+    gl.ylabel_style = {'size': 8}
     gl.right_labels = False
     gl.top_labels = False
-
-    #plt.savefig('LO-minus-WLgauges-mean_navd.png',dpi=200)
+    savestr = pltsubdir + "tgmap-1_mean.png"
+    plt.savefig(savestr,dpi=400)
 
 
     fig1 = plt.figure(figsize=(6.4,4.8))
     ax1 = fig1.add_axes((0.08,0.05,0.92,0.92), projection=cpc)
-    ax1.coastlines()
+    ax1.set_extent((xlo, xhi, ylo, yhi))
+    ax1.coastlines(color='lightgray', zorder=0)
 
-    c1=ax1.scatter(out1[:,1],out1[:,0],c=out1[:,3],s=30,cmap=cm.Spectral_r,vmin=0,vmax=2)
-    plt.colorbar(c1)
-    plt.title(f'Model vs NOAA tide gauges: fraction of s.d., datum: {datum}', size=11)
+    c1=ax1.scatter(out1[:,1],out1[:,0],c=out1[:,3],s=30,cmap=cm.Spectral_r,vmin=0,vmax=2, zorder=3)
+    cbar = plt.colorbar(c1)
+    ticklabs = cbar.ax.get_yticklabels()
+    cbar.ax.set_yticklabels(ticklabs, fontsize=8)
+
+    for ix in range(out1a.shape[0]):
+        ix2 = ix % 2
+        if ix2 == 1:
+            ax1.annotate(str(int(out1a[ix, 4])), (out1a[ix, 1], out1a[ix, 0]),
+                         xytext=(out1a[ix, 1] + 0.07, out1a[ix, 0]),
+                         size=annotsz, zorder=5)
+        else:
+            ax1.annotate(str(int(out1a[ix, 4])), (out1a[ix, 1], out1a[ix, 0]),
+                         xytext=(out1a[ix, 1] - 0.07, out1a[ix, 0]),
+                         size=annotsz, ha='right', zorder=5)
+    titlstr = f'Model: {model_file}\nModel vs NOAA tide gauges: fraction of s.d., datum: {datum}'
+    plt.title(titlstr, size=7, wrap=True)
     annstdtxt = f"min = {out1[:,3].min(): .2f} \nmax = {out1[:,3].max(): .2f}\nmean = {out1[:,3].mean(): .2f}"
-    ax1.annotate(annstdtxt, (0.1,0.8), xycoords='figure fraction')
+    ax1.annotate(annstdtxt, (0.1,0.8), xycoords='axes fraction', size=9)
 
     gl = ax1.gridlines(crs=cpc, draw_labels=True,
                       linewidth=2, color='gray', alpha=0, linestyle='--')
+    gl.xlabel_style = {'size': 8}
+    gl.ylabel_style = {'size': 8}
     gl.right_labels = False
     gl.top_labels = False
 
-    #plt.savefig('LO-vs-WLgauges-std_navd.png',dpi=200)
+    savestr = pltsubdir + "tgmap-2_sd.png"
+    plt.savefig(savestr, dpi=400)
 
-    # plot L0
+    # plot whole grid
     fig1 = plt.figure(figsize=(9,9.5))
     ax1 = fig1.add_axes((0.05,0.05,0.92,0.92), projection=cpc)
     ax1.coastlines()
@@ -981,9 +1050,9 @@ def plot_wvht_1(buoy, dm, ds=None, save=False, ax=None):
     plt.title(titlestr, size=10)
 
     if save is True:
-        if not os.path.exists('wvht_out'):
-            os.mkdir('wvht_out')
-        savestr = 'wvht_out/wvht_' + buoy
+        if not os.path.exists('Hs'):
+            os.mkdir('Hs')
+        savestr = 'Hs/wvht_' + buoy
         plt.savefig(savestr, dpi=100)
         plt.close()
         return None
@@ -1038,7 +1107,7 @@ def calc_theta_mean_a1b1(a1, b1, freqvar):
 
 
 def plot_wvdir_1(buoy, dm, ds=None, save=False, ax=None):
-    """Plots a single panel time series of obs NDBC buoy significant wave height
+    """Plots a single panel time series of obs NDBC buoy mean wave direction
      compared to that from a model dataset, usually from ROMS (apologies if this doesn't
      work for some other netcdf dataset).
      Parameters:
@@ -1121,9 +1190,9 @@ def plot_wvpp_1(buoy, dm, ds=None, save=False, ax=None):
     plt.title(titlestr, size=9)
 
     if save is True:
-        if not os.path.exists('wvdir_out'):
-            os.mkdir('wvdir_out')
-        savestr = 'wvdir_out/wvdir_' + buoy
+        if not os.path.exists('Pwave'):
+            os.mkdir('Pwave')
+        savestr = 'Pwave/wvdir_' + buoy
         plt.savefig(savestr, dpi=100)
         plt.close()
         return None
