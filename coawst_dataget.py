@@ -700,7 +700,8 @@ def wlqckcomp(model_file, variable='zeta', time_frame=None, interpol=None, butte
             continue
 
         moddat = dmod1[:, idx1[0], idx1[1]]
-        plt.figure(figsize=(6,3))
+        fig1 = plt.figure(figsize=(6,3))
+        ax1 = fig1.add_axes((0.1,0.15,0.88,0.74))
         l1 = plt.plot(modtime, moddat, '-')
         l2 = plt.plot(tout, wldata, '-')
 
