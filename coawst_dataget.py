@@ -556,7 +556,21 @@ def llfind(lat1,lon1,lats1,lons1, maxdist=3):
         lons1 = lons1.values
     lons1a = lons1[~np.isnan(lons1)]
     lats1a = lats1[~np.isnan(lats1)]
-    blah = list(zip(lats1a, lons1a))
+    dist1 = lons1a[3] - lons1a[2]
+    dist2 = lats1a[40] - lats1a[39]
+    dd = 30 * min(dist1, dist2)
+    idx3 = np.where((lats1 < lat1 + dd) & (lats1 > lat1 - dd) & (lons1 < lon1 + dd) & (lons1 > lon1 - dd))
+    yidxmin = idx3[0].min()
+    yidxmax = idx3[0].max()
+    xidxmax = idx3[1].max()
+    xidxmin = idx3[1].min()
+    lats2 = lats1[yidxmin:yidxmax, xidxmin:xidxmax]
+    lons2 = lons1[yidxmin:yidxmax, xidxmin:xidxmax]
+
+    lons2a = lons2[~np.isnan(lons2)]
+    lats2a = lats2[~np.isnan(lats2)]
+
+    blah = list(zip(lats2a, lons2a))
     mp1 = MultiPoint(blah)
 
     p1 = Point(lat1,lon1)
