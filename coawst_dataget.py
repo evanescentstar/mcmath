@@ -560,12 +560,18 @@ def llfind(lat1,lon1,lats1,lons1, maxdist=3):
     dist2 = lats1a[40] - lats1a[39]
     dd = 30 * max(dist1, dist2)
     idx3 = np.where((lats1 < lat1 + dd) & (lats1 > lat1 - dd) & (lons1 < lon1 + dd) & (lons1 > lon1 - dd))
+    if len(idx3[0]) < 5:
+        return None
     yidxmin = idx3[0].min()
     yidxmax = idx3[0].max()
     xidxmax = idx3[1].max()
     xidxmin = idx3[1].min()
     lats2 = lats1[yidxmin:yidxmax, xidxmin:xidxmax]
+    if lats2.size < 5:
+        return None
     lons2 = lons1[yidxmin:yidxmax, xidxmin:xidxmax]
+    if lons2.size < 5:
+        return None
 
     lons2a = lons2[~np.isnan(lons2)]
     lats2a = lats2[~np.isnan(lats2)]
