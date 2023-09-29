@@ -550,6 +550,10 @@ def gcdist(startlat, startlon, endlat, endlon):
     return dist
 
 def llfind(lat1,lon1,lats1,lons1, maxdist=3):
+    if type(lat1) is xr.DataArray:
+        lat1= float(lat1)
+    if type(lon1) is xr.DataArray:
+        lon1 = float(lon1)
     if type(lats1) is xr.DataArray:
         lats1 = lats1.values
     if type(lons1) is xr.DataArray:
@@ -1251,14 +1255,14 @@ def specplt(Sfa, dirs=None, freqs=None, cmap=cm.Spectral_r, ax = None, cb=True):
     ax.set_theta_direction(-1)
     ax.set_theta_offset(np.pi / 2.0)
     ax.set_rscale('log')
-    lev1a = array([0.01])
-    lev1b = arange(0.1, 0.55, 0.1)
+    lev1a = np.array([0.01])
+    lev1b = np.arange(0.1, 0.55, 0.1)
     lev1 = np.append(lev1a, lev1b)
     if dirs is None:
         dirs = Sfa.dir
     if freqs is None:
         freqs = Sfa.freq
-    cf1 = ax.contourf(deg2rad(dirs), freqs, Sfa, cmap=cm.Spectral_r, vmin=0.05, levels=lev1, extend='max')
+    cf1 = ax.contourf(np.deg2rad(dirs), freqs, Sfa, cmap=cm.Spectral_r, vmin=0.05, levels=lev1, extend='max')
     ax.set_ylim((0.05, 0.4))
     ax.set_yscale('log')
     ax.set_rticks([0.04, 0.05, 0.1, 0.2, 0.3, 0.4])
