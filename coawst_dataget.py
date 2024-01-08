@@ -49,8 +49,12 @@ def poly_region(region_in, latlon=True):
     if gridfile is not None:
         grd = xr.open_dataset(gridfile)
         grd = grd.set_coords(('lat_rho', 'lon_rho'))
-        grdH = grd.h.load()
-        grdH = grdH.rename({"lon_rho": "lon", "lat_rho": "lat"})
+        if 'h' in list(grd):
+            grdH = grd.h.load()
+            grdH = grdH.rename({"lon_rho": "lon", "lat_rho": "lat"})
+        elif 'zeta' in list(grd):
+            grdH = grd.zeta.load()
+            grdH = grdH.rename({"lon_rho": "lon", "lat_rho": "lat"})
 
         glon = np.concatenate(
             (
@@ -729,8 +733,8 @@ def wlqckcomp(model_file, variable='zeta', time_frame=None, interpol=None, butte
         l1 = plt.plot(modtime, moddat, '-')
         l2 = plt.plot(tout, wldata, '-')
 
-        ltxt1 = 'model' + f' - mean:{moddat.mean().values: .2f}'
-        ltxt2 = 'obs' + f' - mean: {wldata.mean(): .2f}'
+        ltxt1 = 'model' + f'--mean:{moddat.mean().values: .2f}'
+        ltxt2 = 'obs' + f'--mean: {wldata.mean(): .2f}'
         plt.legend([ltxt1, ltxt2], loc=2, prop=prop1)
 
         titlstr = f'Comparison of data from {dmod.file} to obs at station {ds1[station].station}\nlocation: {locat1}  ' \
@@ -1038,37 +1042,68 @@ def plot_wvht_1(buoy, dm, ds=None, save=False, ax=None):
     > dmod = xr.open_dataset('https://geoport.whoi.edu/thredds/dodsC/vortexfs1/usgs/Projects/Michael2018/michael31/qck/michael_ocean_gomsab_qck.nc')
     > cdg.plot_wvht_1('41004',dmod,ds1)
      """
+    if ds is None:
+        print('Not implemented yet')
+        return None
     buoyvar = 'buoy_' + buoy
-    timevar = 'time_' + buoy
+
     lat, lon = ds[buoyvar]
     idxa, idxo = llfind(lat, lon, dm.lat_rho, dm.lon_rho)
     hw1 = dm['Hwave'][:, idxa, idxo]
     ht1 = dm[hw1.time]
 
-    bd1 = ds['wave_height_' + buoy]
+    if ('wave_height_' + buoy) in list(ds):
+        bd1 = ds['wave_height_' + buoy]
+        timevar = 'time_' + buoy
+        if ax is None:
+            fig1 = plt.figure()
+            ax1 = fig1.add_axes((0.12, 0.125, 0.8, 0.8))
+        else:
+            fig1 = ax.get_figure()
+            ax1 = plt.sca(ax)
+        l1 = bd1.dropna(timevar).plot(ax=ax1)
+        l2 = hw1.plot(ax=ax1)
 
-    if ax is None:
-        fig1 = plt.figure()
-        ax1 = fig1.add_axes((0.12, 0.125, 0.8, 0.8))
+        bd1a = bd1.dropna(timevar)
+        bt1 = bd1a[timevar]
+        bt1a = mpl.dates.date2num(bt1)
+        ht1a = mpl.dates.date2num(ht1)
+        # get interpolation function
+        fi1 = sp.interpolate.interp1d(bt1a, bd1a)
+        # get location (time location) of interpolated values
+        arr1a = np.where((ht1 < bt1[-1]) & (ht1 > bt1[0]))
+        # get interpolated values of bd1
+        bd2 = fi1(ht1a[arr1a])
+        # Now we can calculate a proper RMSE
+        rmse1 = np.sqrt((((hw1[arr1a] - bd2) ** 2) / bd2.var()).mean())
+    elif ('spectral_wave_density_' + buoy) in list(ds):
+        bd1 = calc_Hs_1d(ds['spectral_wave_density_' + buoy],ds['frequency_' + buoy])
+        timevar = 'time_' + buoy + '_sw'
+        if ax is None:
+            fig1 = plt.figure()
+            ax1 = fig1.add_axes((0.12, 0.125, 0.8, 0.8))
+        else:
+            fig1 = ax.get_figure()
+            ax1 = plt.sca(ax)
+
+        bt1 = ds[timevar]
+        bt1a = mpl.dates.date2num(bt1)
+        ht1a = mpl.dates.date2num(ht1)
+
+        l1 = plt.plot(bt1,bd1)
+        l2 = hw1.plot(ax=ax1)
+
+        # get interpolation function
+        fi1 = sp.interpolate.interp1d(bt1a, bd1)
+        # get location (time location) of interpolated values
+        arr1a = np.where((ht1 < bt1[-1]) & (ht1 > bt1[0]))
+        # get interpolated values of bd1
+        bd2 = fi1(ht1a[arr1a])
+        # Now we can calculate a proper RMSE
+        rmse1 = np.sqrt((((hw1[arr1a] - bd2) ** 2) / bd2.var()).mean())
     else:
-        fig1 = ax.get_figure()
-        ax1 = plt.sca(ax)
-    l1 = bd1.dropna(timevar).plot(ax=ax1)
-    l2 = hw1.plot(ax=ax1)
-
-    bd1a = bd1.dropna(timevar)
-    bt1 = bd1a[timevar]
-    bt1a = mpl.dates.date2num(bt1)
-    ht1a = mpl.dates.date2num(ht1)
-    # get interpolation function
-    fi1 = sp.interpolate.interp1d(bt1a, bd1a)
-    # get location (time location) of interpolated values
-    arr1a = np.where((ht1 < bt1[-1]) & (ht1 > bt1[0]))
-    # get interpolated values of bd1
-    bd2 = fi1(ht1a[arr1a])
-    # Now we can calculate a proper RMSE
-    rmse1 = np.sqrt((((hw1[arr1a] - bd2) ** 2) / bd2.var()).mean())
-
+        print(f'No wave data for buoy {buoy}')
+        return None
     modelstr = f'model, rmse = {rmse1:0.2f}'
     plt.legend(['obs', modelstr], loc=2)
     titlestr = "Hs @ " + ds[buoyvar].comment + f' ({buoy})'
@@ -1244,7 +1279,7 @@ def calc_peak_T(spec1d, frequencies):
         freqout[f1] = frequencies[maxfilt]
     return 1.0 / freqout
 
-def specplt(Sfa, dirs=None, freqs=None, cmap=cm.Spectral_r, ax = None, cb=True):
+def specplt(Sfa, dirs=None, freqs=None, cmap=cm.Spectral_r, ax = None, cb=True, rticks=True):
     """Sfa = spectral density function as a function of freq and dir
     dirs = directions for Sfa data, can be omitted if Sfa contains this info (xarray)
     freqs = same as dirs but are the frequencies
@@ -1336,3 +1371,26 @@ def ndbcspectxt(buoy,year):
     ds1 = ds1.squeeze()
     ds1 = ds1.rename({'freq': 'frequency'})
     return ds1
+
+def integrate_in_frequency(data_field, frequencies, faxis=0):
+    return np.trapz(data_field, frequencies, axis=faxis).squeeze()
+
+
+def integrate_in_direction(data_field, directional_bin_width, daxis=1):
+    return np.sum(data_field * directional_bin_width, axis=daxis).squeeze()
+
+
+def integrate_frequency_and_direction(data_field, frequencies, directional_bin_width,
+                                      faxis=0, daxis=1):
+    fsum = integrate_in_frequency(data_field, frequencies, faxis=faxis).squeeze()
+    return integrate_in_direction(fsum, directional_bin_width, daxis=daxis).squeeze()
+
+
+def calc_Hs_2d( data_field, frequencies, directional_bin_width, faxis=0, daxis=1 ):
+    return( 4.*np.sqrt( integrate_frequency_and_direction(data_field, frequencies,
+                        directional_bin_width, faxis=faxis, daxis=daxis).squeeze()) )
+
+def calc_Hs_1d(data_field, frequencies):
+    m0 = calc_m0_1d(data_field, frequencies)
+    return(4.*np.sqrt(m0))
+
