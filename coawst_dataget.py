@@ -676,7 +676,7 @@ def wlqckcomp(model_file, variable='zeta', time_frame=None, interpol=None, butte
     lon_ish = ['lon' in x for x in dmod1.coords]
     modlon = dmod[np.array(list(dmod1.coords))[lon_ish][0]].values
     time_ish = ['time' in x for x in dmod1.coords]
-    modtime = dmod[np.array(list(dmod1.coords))[time_ish][0]].values
+    modtime = dmod1[np.array(list(dmod1.coords))[time_ish][0]].values
     # now find all lat / lon coords that correspond to places with data
     # and mask them with nan so that llfind() will not look for lat-lon places within
     # the dataset that have no data
@@ -691,11 +691,13 @@ def wlqckcomp(model_file, variable='zeta', time_frame=None, interpol=None, butte
         time1 = ds1[ds1[station].time]
         tstr = ds1[station].time
         locat1 = ds1[station].locat
+        if (lat1 < 30) & (lon1 > -71):
+            continue
 
         tout = d64(time1.values)
         wldata = ds1[station]
         if interpol is not None:
-            wli = wldata.interpolate_na(dim=tstr, method=interpol, use_coordinate=False).values
+            wli = wldata.interpolate_na(dim=tstr, method=interpol, use_coordinate=False)
             if butterord is not None:
                 from scipy.signal import buttord, butter, filtfilt
                 N, Wn = butterord
@@ -751,7 +753,7 @@ def wlqckcomp(model_file, variable='zeta', time_frame=None, interpol=None, butte
 
         plt.close()
 
-    return ds1, dmod
+    return ds1, dmod1
 
 def wl1station(station, model_file, variable, time_frame, datum='NAVD'):
     duh1 = wlget(station, time_frame, datum=datum)
@@ -807,7 +809,7 @@ def wl1station(station, model_file, variable, time_frame, datum='NAVD'):
 
     return duh1,moddat
 
-def wlqckcomp2(model_file, variable='zeta', time_frame=None, interpol=None, butterord=None, datum='NAVD', product='water_level', annotsz=6, ds1=None, dmod=None):
+def wlqckcomp2(model_file, variable='zeta', time_frame=None, interpol=None, butterord=None, datum='NAVD', product='water_level', annotsz=5, ds1=None, dmod=None, corroff=0):
     import cartopy.crs as crs
     import matplotlib.cm as cm
     pltsubdir = "wlcmp/"
@@ -849,7 +851,7 @@ def wlqckcomp2(model_file, variable='zeta', time_frame=None, interpol=None, butt
     lon_ish = ['lon' in x for x in dmod1.coords]
     modlon = dmod[np.array(list(dmod1.coords))[lon_ish][0]].values
     time_ish = ['time' in x for x in dmod1.coords]
-    modtime = dmod[np.array(list(dmod1.coords))[time_ish][0]].values
+    modtime = dmod1[np.array(list(dmod1.coords))[time_ish][0]].values
     # now find all lat / lon coords that correspond to places with data
     # and mask them with nan so that llfind() will not look for lat-lon places within
     # the dataset that have no data
@@ -858,7 +860,7 @@ def wlqckcomp2(model_file, variable='zeta', time_frame=None, interpol=None, butt
 
     ix = 0
     print(f'station list is {list1}')
-    out1 = np.zeros((len(list1), 5))
+    out1 = np.zeros((len(list1), 6))
     for station in list1:
         print(f'on station {station}')
         lat1 = ds1[station].lat
@@ -867,7 +869,9 @@ def wlqckcomp2(model_file, variable='zeta', time_frame=None, interpol=None, butt
         tstr = ds1[station].time
         locat1 = ds1[station].locat
         station1 = np.int32(ds1[station].station)
-
+        if (lat1 < 30) & (lon1 > -71):
+            continue
+        
         idx1 = llfind(lat1, lon1, modlat, modlon)
         if idx1 is None:
             continue
@@ -885,15 +889,29 @@ def wlqckcomp2(model_file, variable='zeta', time_frame=None, interpol=None, butt
             else:
                 wldata = wli.copy()
 
+        moddat = dmod1[:, idx1[0], idx1[1]]
+        modcorr = moddat[corroff:]
+        wlcorr = []
+        for t1 in modcorr.ocean_time:
+            # get dmod's time string into same format as gauges' time strings
+            cmpstr = (' '.join(str(t1.values).split('T')))[:-13]
+            wlcorr.append(wldata.loc[wldata[tstr] == cmpstr].values)
+        wlcorr = np.array(wlcorr).squeeze()
+        corr1 = np.nan
+        if modcorr.size == wlcorr.size:
+            corr1 = np.corrcoef(modcorr, wlcorr)[1, 0]
+
         out1[ix,0] = lat1
         out1[ix,1] = lon1
         out1[ix,2] = dmod1[:, idx1[0], idx1[1]].mean() - wldata.mean()
         out1[ix,3] = dmod1[:, idx1[0], idx1[1]].std(ddof=1) / wldata.std(ddof=1)
-        out1[ix, 4] = station1
+        out1[ix, 4] = corr1
+        out1[ix, 5] = station1
         ix = ix + 1
 
     cpc = crs.PlateCarree()
 
+    ## mean difference plot  ##########################################################
     fig1 = plt.figure(figsize=(6.4,4.8))
     ax1 = fig1.add_axes((0.08,0.05,0.92,0.92), projection=cpc)
     xlo = dmod.lon_rho.min()
@@ -903,23 +921,23 @@ def wlqckcomp2(model_file, variable='zeta', time_frame=None, interpol=None, butt
     ax1.set_extent((xlo, xhi, ylo, yhi))
     ax1.coastlines(color='lightgray', zorder=0)
 
-    out1a = out1[np.where(out1[:, 4] != 0)]
+    out1 = out1[np.where(out1[:, 5] != 0)]
 
-    c1 = ax1.scatter(out1a[:, 1], out1a[:, 0], c=out1a[:, 2], s=30, cmap=cm.seismic, vmin=-.6, vmax=.6, zorder=3)
+    c1 = ax1.scatter(out1[:, 1], out1[:, 0], c=out1[:, 2], s=30, cmap=cm.seismic, vmin=-.6, vmax=.6, zorder=3)
 
     cbar = plt.colorbar(c1)
     ticklabs = cbar.ax.get_yticklabels()
     cbar.ax.set_yticklabels(ticklabs, fontsize=8)
 
-    for ix in range(out1a.shape[0]):
+    for ix in range(out1.shape[0]):
         ix2 = ix % 2
         if ix2 == 1:
-            ax1.annotate(str(int(out1a[ix, 4])), (out1a[ix, 1], out1a[ix, 0]),
-                         xytext=(out1a[ix, 1] + 0.07, out1a[ix, 0]),
+            ax1.annotate(str(int(out1[ix, 5])), (out1[ix, 1], out1[ix, 0]),
+                         xytext=(out1[ix, 1] + 0.07, out1[ix, 0]),
                          size=annotsz, zorder=5)
         else:
-            ax1.annotate(str(int(out1a[ix, 4])), (out1a[ix, 1], out1a[ix, 0]),
-                         xytext=(out1a[ix, 1] - 0.07, out1a[ix, 0]),
+            ax1.annotate(str(int(out1[ix, 5])), (out1[ix, 1], out1[ix, 0]),
+                         xytext=(out1[ix, 1] - 0.07, out1[ix, 0]),
                          size=annotsz, ha='right', zorder=5)
     titlstr = f'Model: {model_file}\nModel minus NOAA tide gauges: mean difference, datum: {datum}'
     plt.title(titlstr, size=6)
@@ -934,7 +952,7 @@ def wlqckcomp2(model_file, variable='zeta', time_frame=None, interpol=None, butt
     savestr = pltsubdir + "tgmap-1_mean.png"
     plt.savefig(savestr,dpi=400)
 
-
+    ## std dev plot  ######################################################################
     fig1 = plt.figure(figsize=(6.4,4.8))
     ax1 = fig1.add_axes((0.08,0.05,0.92,0.92), projection=cpc)
     ax1.set_extent((xlo, xhi, ylo, yhi))
@@ -945,15 +963,15 @@ def wlqckcomp2(model_file, variable='zeta', time_frame=None, interpol=None, butt
     ticklabs = cbar.ax.get_yticklabels()
     cbar.ax.set_yticklabels(ticklabs, fontsize=8)
 
-    for ix in range(out1a.shape[0]):
+    for ix in range(out1.shape[0]):
         ix2 = ix % 2
         if ix2 == 1:
-            ax1.annotate(str(int(out1a[ix, 4])), (out1a[ix, 1], out1a[ix, 0]),
-                         xytext=(out1a[ix, 1] + 0.07, out1a[ix, 0]),
+            ax1.annotate(str(int(out1[ix, 5])), (out1[ix, 1], out1[ix, 0]),
+                         xytext=(out1[ix, 1] + 0.07, out1[ix, 0]),
                          size=annotsz, zorder=5)
         else:
-            ax1.annotate(str(int(out1a[ix, 4])), (out1a[ix, 1], out1a[ix, 0]),
-                         xytext=(out1a[ix, 1] - 0.07, out1a[ix, 0]),
+            ax1.annotate(str(int(out1[ix, 5])), (out1[ix, 1], out1[ix, 0]),
+                         xytext=(out1[ix, 1] - 0.07, out1[ix, 0]),
                          size=annotsz, ha='right', zorder=5)
     titlstr = f'Model: {model_file}\nModel vs NOAA tide gauges: fraction of s.d., datum: {datum}'
     plt.title(titlstr, size=7, wrap=True)
@@ -970,7 +988,43 @@ def wlqckcomp2(model_file, variable='zeta', time_frame=None, interpol=None, butt
     savestr = pltsubdir + "tgmap-2_sd.png"
     plt.savefig(savestr, dpi=400)
 
-    # plot whole grid
+    ## corr plot  #####################################################################
+    fig1 = plt.figure(figsize=(6.4, 4.8))
+    ax1 = fig1.add_axes((0.08, 0.05, 0.92, 0.92), projection=cpc)
+    ax1.set_extent((xlo, xhi, ylo, yhi))
+    ax1.coastlines(color='lightgray', zorder=0)
+
+    c1 = ax1.scatter(out1[:, 1], out1[:, 0], c=out1[:, 4], s=30, cmap=cm.gist_rainbow, vmin=0, vmax=1, zorder=3)
+    cbar = plt.colorbar(c1)
+    ticklabs = cbar.ax.get_yticklabels()
+    cbar.ax.set_yticklabels(ticklabs, fontsize=8)
+
+    for ix in range(out1.shape[0]):
+        ix2 = ix % 2
+        if ix2 == 1:
+            ax1.annotate(str(int(out1[ix, 5])), (out1[ix, 1], out1[ix, 0]),
+                         xytext=(out1[ix, 1] + 0.07, out1[ix, 0]),
+                         size=annotsz, zorder=5)
+        else:
+            ax1.annotate(str(int(out1[ix, 5])), (out1[ix, 1], out1[ix, 0]),
+                         xytext=(out1[ix, 1] - 0.07, out1[ix, 0]),
+                         size=annotsz, ha='right', zorder=5)
+    titlstr = f'Model: {model_file}\nModel vs NOAA tide gauges: correlation, datum: {datum}'
+    plt.title(titlstr, size=7, wrap=True)
+    annstdtxt = f"min = {np.nanmin(out1[:, 4]): .2f} \nmax = {np.nanmax(out1[:, 4]): .2f}\nmedian = {np.nanmedian(out1[:, 4]): .2f}"
+    ax1.annotate(annstdtxt, (0.1, 0.8), xycoords='axes fraction', size=9)
+
+    gl = ax1.gridlines(crs=cpc, draw_labels=True,
+                       linewidth=2, color='gray', alpha=0, linestyle='--')
+    gl.xlabel_style = {'size': 8}
+    gl.ylabel_style = {'size': 8}
+    gl.right_labels = False
+    gl.top_labels = False
+
+    savestr = pltsubdir + "tgmap-3_corr.png"
+    plt.savefig(savestr, dpi=400)
+
+    # plot whole grid  ##################################################################
     fig1 = plt.figure(figsize=(9,9.5))
     ax1 = fig1.add_axes((0.05,0.05,0.92,0.92), projection=cpc)
     ax1.coastlines()
