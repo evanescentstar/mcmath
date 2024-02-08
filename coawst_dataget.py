@@ -638,7 +638,7 @@ def my_fmt_xdate(ax=None,rot=30,hal='right'):
 
     return None
 
-def wlqckcomp(model_file, variable='zeta', time_frame=None, interpol=None, butterord=None, datum='NAVD', product='water_level'):
+def wlqckcomp(model_file, variable='zeta', time_frame=None, interpol=None, butterord=None, datum='NAVD', product='water_level', corroff=0):
     from matplotlib import font_manager
     pltsubdir = "wlcmp/"
     if not os.path.exists(pltsubdir):
@@ -734,6 +734,17 @@ def wlqckcomp(model_file, variable='zeta', time_frame=None, interpol=None, butte
         ax1 = fig1.add_axes((0.1,0.15,0.88,0.74))
         l1 = plt.plot(modtime, moddat, '-')
         l2 = plt.plot(tout, wldata, '-')
+
+        modcorr = moddat[corroff:]
+        wlcorr = []
+        for t1 in modcorr.ocean_time:
+            # get dmod's time string into same format as gauges' time strings
+            cmpstr = (' '.join(str(t1.values).split('T')))[:-13]
+            wlcorr.append(wldata.loc[wldata[tstr] == cmpstr].values)
+        wlcorr = np.array(wlcorr).squeeze()
+        if modcorr.size == wlcorr.size:
+            corr1 = np.corrcoef(modcorr, wlcorr)[1, 0]
+            plt.text(0.003, 0.71, f'corr:\n{corr1: .2f}', ha='left', size=7, transform=ax1.transAxes)
 
         ltxt1 = 'model' + f'--mean:{moddat.mean().values: .2f}'
         ltxt2 = 'obs' + f'--mean: {wldata.mean(): .2f}'
