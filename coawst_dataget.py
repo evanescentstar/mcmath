@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib as mpl
 
-def poly_region(region_in, latlon=True):
+def poly_region(region_in, latlon=True, verbose=False):
     """Returns a shapely polygon defined either by the boundary of a grid from a netcdf grid file (so, a
     filename / filepath) or a tuple of 4 float numbers representing lower left lat-lon and
     upper right lat-lon, thus defining the polygon of a lat-lon box. If parameter 'latlon' is False, then
@@ -72,10 +72,11 @@ def poly_region(region_in, latlon=True):
     elif boundbox is not None:
         if latlon:
             y1, x1, y2, x2 = boundbox
-            print(f'y1: {y1}')
-            print(f'x1: {x1}')
-            print(f'y2: {y2}')
-            print(f'x2: {x2}')
+            if verbose:
+                print(f'y1: {y1}')
+                print(f'x1: {x1}')
+                print(f'y2: {y2}')
+                print(f'x2: {x2}')
             xy = ((x1, y1), (x2, y2))
             axy = np.array(xy)
             xs = [axy[0, 0], axy[1, 0], axy[1, 0], axy[0, 0]]
@@ -83,10 +84,11 @@ def poly_region(region_in, latlon=True):
             p1 = geometry.Polygon(list(zip(xs, ys)))
         else:
             x1, y1, x2, y2 = boundbox
-            print(f'y1: {y1}')
-            print(f'x1: {x1}')
-            print(f'y2: {y2}')
-            print(f'x2: {x2}')
+            if verbose:
+                print(f'y1: {y1}')
+                print(f'x1: {x1}')
+                print(f'y2: {y2}')
+                print(f'x2: {x2}')
             xy = ((x1, y1), (x2, y2))
             axy = np.array(xy)
             xs = [axy[0, 0], axy[1, 0], axy[1, 0], axy[0, 0]]
@@ -566,7 +568,7 @@ def llfind(lat1,lon1,lats1,lons1, maxdist=3):
     lats1a = lats1[~np.isnan(lats1)]
     dist1 = lons1a[3] - lons1a[2]
     dist2 = lats1a[40] - lats1a[39]
-    dd = 30 * max(dist1, dist2)
+    dd = 10 * max(dist1, dist2)
     idx3 = np.where((lats1 < lat1 + dd) & (lats1 > lat1 - dd) & (lons1 < lon1 + dd) & (lons1 > lon1 - dd))
     if len(idx3[0]) < 5:
         return None
