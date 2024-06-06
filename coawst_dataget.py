@@ -151,8 +151,31 @@ def datestrnorm(dstr):
     return outdstr
 ## END of datestrnorm()
 
+def ndbcread(ddset, btype_in, timefr, varset, verbose):
+    ds1out = xr.Dataset({})
+    timecoord = ddset.time[timefr].values
+    if btype_in == 'swden':
+        freqcoord = ddset.frequency.values
+    for v1 in varset[btype_in]:
+        vout = ddset.variables[v1][timefr].squeeze()
+        if np.count_nonzero(~np.isnan(vout.values)) < 2:
+            if verbose:
+                print(f'var {v1} contains less than 2 values, skipping')
+            continue
+        elif btype_in == 'swden':
+            ds1out[v1] = xr.DataArray(data=vout.values,
+                                   dims=list(vout.dims),
+                                   coords={'time': timecoord, 'frequency': freqcoord},
+                                   attrs=vout.attrs)
+        else:
+            ds1out[v1] = xr.DataArray(data=vout.values,
+                                   dims=list(vout.dims),
+                                   coords={'time': timecoord},
+                                   attrs=vout.attrs)
+    return ds1out
+## END of ndbcread()
 
-def ndbcget(buoy, btype, time_frame):
+def ndbcget(buoy, btype, time_frame, verbose=False):
     """Grabs the buoy data from the dods.ndbc.noaa.gov THREDDS webserver for buoy with id 'buoy'
     and type 'btype' (one of 'stdmet', 'swden', 'ocean', 'pwind', or 'cwind', and within the time frame
     in the form 'yyyy-mm-dd:yyyy-mm-dd' (in UTC time zone), such as '2022-03-05:2022-04-29', or through to the latest
@@ -183,41 +206,46 @@ def ndbcget(buoy, btype, time_frame):
     suff = '/catalog.html'
 
     if btype not in varset.keys():
-        print(f"ERROR: buoy type '{btype}' not found")
-        print(f"must be one of: {varset.keys()}")
+        if verbose:
+            print(f"ERROR: buoy type '{btype}' not found")
+            print(f"must be one of: {varset.keys()}")
         return None
     prefdata = 'https://dods.ndbc.noaa.gov/thredds/dodsC/data/' + btype + '/'
     prefhtml = 'https://dods.ndbc.noaa.gov/thredds/catalog/data/' + btype + '/'
     dir1 = prefhtml + buoy + suff
     ddir1 = pd.read_html(dir1)[0]
-    if len(ddir1.Dataset[ddir1.Dataset.str.contains('9999')]) != 0:
-        print(f'buoy {buoy} in {btype}')
-        ds1 = xr.Dataset({})
-        dset = ddir1.Dataset[ddir1.Dataset.str.contains('9999')]
-        dset1 = prefdata + buoy + '/' + dset.values[0]
-        ddset1 = xr.open_dataset(dset1)
-        timefr = (ddset1.time <= np.datetime64(end)) & (ddset1.time >= np.datetime64(start))
-        if timefr.values.sum() == 0:
-            print(f'buoy {buoy} has no data within this time frame')
-        else:
-            timecoord = ddset1.time[timefr].values
-            if btype == 'swden':
-                freqcoord = ddset1.frequency.values
-            for v1 in varset[btype]:
-                vout = ddset1.variables[v1][timefr].squeeze()
-                if np.count_nonzero(~np.isnan(vout.values)) < 2:
-                    print(f'var {v1} contains less than 2 values, skipping')
-                    continue
-                elif btype == 'swden':
-                    ds1[v1] = xr.DataArray(data=vout.values,
-                                           dims=list(vout.dims),
-                                           coords={'time': timecoord, 'frequency': freqcoord},
-                                           attrs=vout.attrs)
-                else:
-                    ds1[v1] = xr.DataArray(data=vout.values,
-                                           dims=list(vout.dims),
-                                           coords={'time': timecoord},
-                                           attrs=vout.attrs)
+
+    yr1 = start[:4]
+    if end[:4] != yr1:
+        if verbose:
+            print('multi-year timeframes not yet supported')
+
+    pack1 = ['9999',  yr1+'\.nc$', 'ncml$']
+
+    for str1 in pack1:
+        if len(ddir1.Dataset[ddir1.Dataset.str.contains(str1)]) != 0:
+            if verbose:
+                print(f'buoy {buoy} in {btype}')
+            # ds1 = xr.Dataset({})
+            dset = ddir1.Dataset[ddir1.Dataset.str.contains(str1)]
+            dset1 = prefdata + buoy + '/' + dset.values[0]
+            ddset1 = xr.open_dataset(dset1)
+            if (ddset1.time[0] > np.datetime64(start)) | (ddset1.time[-1] < np.datetime64(start)):
+                continue
+            timefr = (ddset1.time <= np.datetime64(end)) & (ddset1.time >= np.datetime64(start))
+            if timefr.values.sum() > 0:
+                if verbose:
+                    print(f'found {timefr.values.sum()} values in time frame')
+                ds1 = ndbcread(ddset1, btype, timefr, varset=varset, verbose=verbose)
+                break
+            if str1 == yr1:
+                if verbose:
+                    print(f'buoy {buoy} has no data within this time frame', flush=True)
+                sys.stdout.flush()
+        elif str1 == yr1:
+            if verbose:
+                print(f'buoy {buoy} has no data within this time frame, or buoy not found', flush=True)
+            sys.stdout.flush()
     if (ds1 is not None):
         if len(list(ds1.variables)) > 0:
             ds1.attrs = ddset1.attrs
@@ -225,13 +253,14 @@ def ndbcget(buoy, btype, time_frame):
             ds1['longitude'] = xr.DataArray(data=ddset1.longitude.values, dims=['longitude'],
                                             attrs=ddset1.longitude.attrs)
         else:
-            print(f'no variables with data found for buoy {buoy} in {btype}')
+            if verbose:
+                print(f'no variables with data found for buoy {buoy} in {btype}')
             return None
     return ds1
 ## END of ndbcget()
 
 
-def buoycoll(region_in, time_frame=None, outfile=None, variable=None):
+def buoycoll(region_in, time_frame=None, outfile=None, variable=None, verbose=False):
     """buoycoll - 'buoy collect', a script which collects all NDBC buoys which lie within a specified region
     and contain data within a specified time range.
 
@@ -310,7 +339,7 @@ def buoycoll(region_in, time_frame=None, outfile=None, variable=None):
     # Loop through the buoys found, and gather the outputs within the time frame specified into the xarray Dataset ds1
     for buoy in buoy1:
         if buoy in dsm.Dataset.values:
-            dout = ndbcget(buoy, 'stdmet', time_frame)
+            dout = ndbcget(buoy, 'stdmet', time_frame, verbose)
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -329,7 +358,7 @@ def buoycoll(region_in, time_frame=None, outfile=None, variable=None):
                 ds1['buoy_' + buoy].attrs['standard_name'] = 'lat,lon'
 
         if buoy in doc.Dataset.values:
-            dout = ndbcget(buoy, 'ocean', time_frame)
+            dout = ndbcget(buoy, 'ocean', time_frame, verbose)
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -349,7 +378,7 @@ def buoycoll(region_in, time_frame=None, outfile=None, variable=None):
                     ds1['buoy_' + buoy].attrs['standard_name'] = 'lat,lon'
 
         if buoy in dsw.Dataset.values:
-            dout = ndbcget(buoy, 'swden', time_frame)
+            dout = ndbcget(buoy, 'swden', time_frame, verbose)
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -370,7 +399,7 @@ def buoycoll(region_in, time_frame=None, outfile=None, variable=None):
                     ds1['buoy_' + buoy].attrs['standard_name'] = 'lat,lon'
 
         if buoy in dpw.Dataset.values:
-            dout = ndbcget(buoy, 'pwind', time_frame)
+            dout = ndbcget(buoy, 'pwind', time_frame, verbose)
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -390,7 +419,7 @@ def buoycoll(region_in, time_frame=None, outfile=None, variable=None):
                     ds1['buoy_' + buoy].attrs['standard_name'] = 'lat,lon'
 
         if buoy in dcw.Dataset.values:
-            dout = ndbcget(buoy, 'cwind', time_frame)
+            dout = ndbcget(buoy, 'cwind', time_frame, verbose)
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -1291,6 +1320,7 @@ def plot_wvdir_1(buoy, dm, ds=None, save=False, ax=None):
 
 
 def plot_wvpp_1(buoy, dm, ds=None, save=False, ax=None):
+    """Plots peak wave period comparison between model and NDBC buoy data"""
     buoyvar = 'buoy_' + buoy
     timevar = 'time_' + buoy + '_sw'
     freqvar = 'frequency_' + buoy
