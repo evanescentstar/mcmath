@@ -586,7 +586,7 @@ def gcdist(startlat, startlon, endlat, endlon):
 
 def llfind(lat1,lon1,lats1,lons1, maxdist=3):
     if type(lat1) is xr.DataArray:
-        lat1= float(lat1)
+        lat1 = float(lat1)
     if type(lon1) is xr.DataArray:
         lon1 = float(lon1)
     if type(lats1) is xr.DataArray:
@@ -595,22 +595,34 @@ def llfind(lat1,lon1,lats1,lons1, maxdist=3):
         lons1 = lons1.values
     lons1a = lons1[~np.isnan(lons1)]
     lats1a = lats1[~np.isnan(lats1)]
-    dist1 = lons1a[3] - lons1a[2]
-    dist2 = lats1a[40] - lats1a[39]
+    lons1a_idx = int(lons1a.shape[0] * 0.1)
+    lats1a_idx = int(lats1a.shape[0] * 0.7)
+    dist1 = np.abs(lons1a[lons1a_idx] - lons1a[lons1a_idx - 1])
+    dist2 = np.abs(lats1a[lats1a_idx - 1] - lats1a[lats1a_idx])
     dd = 10 * max(dist1, dist2)
     idx3 = np.where((lats1 < lat1 + dd) & (lats1 > lat1 - dd) & (lons1 < lon1 + dd) & (lons1 > lon1 - dd))
     if len(idx3[0]) < 5:
         return None
-    yidxmin = idx3[0].min()
-    yidxmax = idx3[0].max()
-    xidxmax = idx3[1].max()
-    xidxmin = idx3[1].min()
-    lats2 = lats1[yidxmin:yidxmax, xidxmin:xidxmax]
-    if lats2.size < 5:
-        return None
-    lons2 = lons1[yidxmin:yidxmax, xidxmin:xidxmax]
-    if lons2.size < 5:
-        return None
+    if len(lats1.shape) == 2:
+        yidxmin = idx3[0].min()
+        yidxmax = idx3[0].max()
+        xidxmax = idx3[1].max()
+        xidxmin = idx3[1].min()
+        lats2 = lats1[yidxmin:yidxmax, xidxmin:xidxmax]
+        if lats2.size < 5:
+            return None
+        lons2 = lons1[yidxmin:yidxmax, xidxmin:xidxmax]
+        if lons2.size < 5:
+            return None
+    elif len(lats1.shape) == 1:
+        idxmin = idx3[0].min()
+        idxmax = idx3[0].max()
+        lats2 = lats1[idxmin:idxmax]
+        if lats2.size < 5:
+            return None
+        lons2 = lons1[idxmin:idxmax]
+        if lons2.size < 5:
+            return None
 
     lons2a = lons2[~np.isnan(lons2)]
     lats2a = lats2[~np.isnan(lats2)]
@@ -618,20 +630,25 @@ def llfind(lat1,lon1,lats1,lons1, maxdist=3):
     blah = list(zip(lats2a, lons2a))
     mp1 = MultiPoint(blah)
 
-    p1 = Point(lat1,lon1)
+    p1 = Point(lat1, lon1)
 
     ng1 = nearest_points(p1, mp1)
     ng11 = ng1[1]
 
     idx = np.argwhere(((ng11.xy[0] == lats1) & (ng11.xy[1] == lons1))).squeeze()
-    
-    dist1 = gcdist(blah[0][0],blah[0][1],blah[1][0],blah[1][1])
-    mididx1 = len(blah)//2
-    dist2 = gcdist(blah[mididx1][0],blah[mididx1][1],blah[mididx1+1][0],blah[mididx1+1][1])
-    mindist1 = min(dist1,dist2)
-    max1 = maxdist*mindist1
-    
-    if gcdist(lat1,lon1,lats1[tuple(idx)],lons1[tuple(idx)]) > max1:
+
+    dist1 = gcdist(blah[0][0], blah[0][1], blah[1][0], blah[1][1])
+    mididx1 = len(blah) // 2
+    dist2 = gcdist(blah[mididx1][0], blah[mididx1][1], blah[mididx1 + 1][0], blah[mididx1 + 1][1])
+    mindist1 = min(dist1, dist2)
+    max1 = maxdist * mindist1
+
+    if len(lats1.shape) == 2:
+        if gcdist(lat1, lon1, lats1[tuple(idx)], lons1[tuple(idx)]) > max1:
+            return None
+        else:
+            return idx
+    if gcdist(lat1, lon1, lats1[idx], lons1[idx]) > max1:
         return None
     else:
         return idx
