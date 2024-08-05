@@ -784,11 +784,11 @@ def wlqckcomp(model_file, variable='zeta', time_frame=None, interpol=None, butte
         l2 = plt.plot(tout, wldata, '-')
 
         modcorr = moddat[corroff:]
-        wlcorr = []
+        wlcorr = np.array([])
         for t1 in modcorr.ocean_time:
             # get dmod's time string into same format as gauges' time strings
             cmpstr = (' '.join(str(t1.values).split('T')))[:-13]
-            wlcorr.append(wldata.loc[wldata[tstr] == cmpstr].values)
+            wlcorr = np.append(wlcorr,wldata.loc[wldata[tstr] == cmpstr].values)
         wlcorr = np.array(wlcorr).squeeze()
         if modcorr.size == wlcorr.size:
             corr1 = np.corrcoef(modcorr, wlcorr)[1, 0]
@@ -950,11 +950,11 @@ def wlqckcomp2(model_file, variable='zeta', time_frame=None, interpol=None, butt
 
         moddat = dmod1[:, idx1[0], idx1[1]]
         modcorr = moddat[corroff:]
-        wlcorr = []
+        wlcorr = np.array([])
         for t1 in modcorr.ocean_time:
             # get dmod's time string into same format as gauges' time strings
             cmpstr = (' '.join(str(t1.values).split('T')))[:-13]
-            wlcorr.append(wldata.loc[wldata[tstr] == cmpstr].values)
+            wlcorr = np.append(wlcorr,wldata.loc[wldata[tstr] == cmpstr].values)
         wlcorr = np.array(wlcorr).squeeze()
         corr1 = np.nan
         if modcorr.size == wlcorr.size:
