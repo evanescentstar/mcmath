@@ -339,7 +339,11 @@ def buoycoll(region_in, time_frame=None, outfile=None, variable=None, verbose=Fa
     # Loop through the buoys found, and gather the outputs within the time frame specified into the xarray Dataset ds1
     for buoy in buoy1:
         if buoy in dsm.Dataset.values:
-            dout = ndbcget(buoy, 'stdmet', time_frame, verbose)
+            try:
+                dout = ndbcget(buoy, 'stdmet', time_frame, verbose)
+            except:
+                print(f'skipping {buoy} in stdmet, error reading online data')
+                pass
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -358,7 +362,11 @@ def buoycoll(region_in, time_frame=None, outfile=None, variable=None, verbose=Fa
                 ds1['buoy_' + buoy].attrs['standard_name'] = 'lat,lon'
 
         if buoy in doc.Dataset.values:
-            dout = ndbcget(buoy, 'ocean', time_frame, verbose)
+            try:
+                dout = ndbcget(buoy, 'ocean', time_frame, verbose)
+            except:
+                print(f'skipping {buoy} in ocean, error reading online data')
+                pass
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -378,7 +386,11 @@ def buoycoll(region_in, time_frame=None, outfile=None, variable=None, verbose=Fa
                     ds1['buoy_' + buoy].attrs['standard_name'] = 'lat,lon'
 
         if buoy in dsw.Dataset.values:
-            dout = ndbcget(buoy, 'swden', time_frame, verbose)
+            try:
+                dout = ndbcget(buoy, 'swden', time_frame, verbose)
+            except:
+                print(f'skipping {buoy} in swden, error reading online data')
+                pass
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -399,7 +411,11 @@ def buoycoll(region_in, time_frame=None, outfile=None, variable=None, verbose=Fa
                     ds1['buoy_' + buoy].attrs['standard_name'] = 'lat,lon'
 
         if buoy in dpw.Dataset.values:
-            dout = ndbcget(buoy, 'pwind', time_frame, verbose)
+            try:
+                dout = ndbcget(buoy, 'pwind', time_frame, verbose)
+            except:
+                print(f'skipping {buoy} in pwind, error reading online data')
+                pass
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
@@ -419,7 +435,11 @@ def buoycoll(region_in, time_frame=None, outfile=None, variable=None, verbose=Fa
                     ds1['buoy_' + buoy].attrs['standard_name'] = 'lat,lon'
 
         if buoy in dcw.Dataset.values:
-            dout = ndbcget(buoy, 'cwind', time_frame, verbose)
+            try:
+                dout = ndbcget(buoy, 'cwind', time_frame, verbose)
+            except:
+                print(f'skipping {buoy} in cwind, error reading online data')
+                pass
             if dout is None:
                 pass
             elif len(dout.variables) == 0:
