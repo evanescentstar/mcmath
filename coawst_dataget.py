@@ -762,7 +762,10 @@ def wlqckcomp(model_file, variable='zeta', time_frame=None, interpol=None, butte
         if (lat1 < 30) & (lon1 > -71):
             continue
 
-        tout = d64(time1.values)
+        tout = np.array(d64(time1.values),dtype='datetime64[ns]')
+        tlidx = np.where(tout < modtime[-1])[0][-1]
+        tsl1 = slice(None, tlidx + 6)
+
         wldata = ds1[station]
         if interpol is not None:
             wli = wldata.interpolate_na(dim=tstr, method=interpol, use_coordinate=False)
@@ -801,7 +804,7 @@ def wlqckcomp(model_file, variable='zeta', time_frame=None, interpol=None, butte
         fig1 = plt.figure(figsize=(6,3))
         ax1 = fig1.add_axes((0.1,0.15,0.88,0.74))
         l1 = plt.plot(modtime, moddat, '-')
-        l2 = plt.plot(tout, wldata, '-')
+        l2 = plt.plot(tout[tsl1], wldata[tsl1], '-')
 
         modcorr = moddat[corroff:]
         wlcorr = np.array([])
@@ -1176,7 +1179,7 @@ def plot_wvht_1(buoy, dm, ds=None, save=False, ax=None):
     > cdg.plot_wvht_1('41004',dmod,ds1)
      """
     if ds is None:
-        print('Not implemented yet')
+        print('plotting not implemented without ds defined\n')
         return None
     buoyvar = 'buoy_' + buoy
 
@@ -1194,8 +1197,8 @@ def plot_wvht_1(buoy, dm, ds=None, save=False, ax=None):
         else:
             fig1 = ax.get_figure()
             ax1 = plt.sca(ax)
-        l1 = bd1.dropna(timevar).plot(ax=ax1)
         l2 = hw1.plot(ax=ax1)
+        l1 = bd1.dropna(timevar).plot(ax=ax1)
 
         bd1a = bd1.dropna(timevar)
         bt1 = bd1a[timevar]
@@ -1223,8 +1226,8 @@ def plot_wvht_1(buoy, dm, ds=None, save=False, ax=None):
         bt1a = mpl.dates.date2num(bt1)
         ht1a = mpl.dates.date2num(ht1)
 
-        l1 = plt.plot(bt1,bd1)
         l2 = hw1.plot(ax=ax1)
+        l1 = plt.plot(bt1, bd1)
 
         # get interpolation function
         fi1 = sp.interpolate.interp1d(bt1a, bd1)
@@ -1238,7 +1241,7 @@ def plot_wvht_1(buoy, dm, ds=None, save=False, ax=None):
         print(f'No wave data for buoy {buoy}')
         return None
     modelstr = f'model, rmse = {rmse1:0.2f}'
-    plt.legend(['obs', modelstr], loc=2)
+    plt.legend([modelstr, 'obs'], loc=2)
     titlestr = "Hs @ " + ds[buoyvar].comment + f' ({buoy})'
     plt.title(titlestr, size=10)
 
