@@ -1445,6 +1445,175 @@ def specplt(Sfa, dirs=None, freqs=None, cmap=cm.Spectral_r, ax = None, cb=True, 
         plt.colorbar(cf1)
     return cf1
 
+def specplt2(Sfa, dirs=None, freqs=None, cmap=cm.Spectral_r, ax = None, cb=True, rticks=True, regpolar=False):
+    """Sfa = spectral density function as a function of freq and dir
+    dirs = directions for Sfa data, can be omitted if Sfa contains this info (xarray)
+    freqs = same as dirs but are the frequencies
+    cmap = colormap used to plot the spectral intensity
+    """
+    if ax is None:
+        ax = plt.subplot(projection='polar')
+    if not regpolar:
+        ax.set_theta_direction(-1)
+        ax.set_theta_offset(np.pi / 2.0)
+    ax.set_rscale('log')
+    lev1a = np.array([0.01])
+    lev1b = np.arange(0.1, 0.55, 0.1)
+    lev1 = np.append(lev1a, lev1b)
+    if dirs is None:
+        dirs = Sfa.dir
+    if freqs is None:
+        freqs = Sfa.freq
+    if (dirs[-1] - dirs[0]) < 360:
+        dirs1a = np.ndarray((dirs.shape[0]+1))
+        Sfa1 = np.ndarray((Sfa.shape[0], Sfa.shape[1] + 1))
+        dirs1a[:-1] = dirs
+        dirs1a[-1] = dirs[0] + 360
+        Sfa1[:,:-1] = Sfa.copy()
+        Sfa1[:,-1] = Sfa[:,0].copy()
+        Sfa = Sfa1.copy()
+        dirs = dirs1a.copy()
+    cf1 = ax.contourf(np.deg2rad(dirs), freqs, Sfa, cmap=cm.Spectral_r, vmin=0.05, levels=lev1, extend='max')
+    ax.set_ylim((0.05, 0.4))
+    ax.set_yscale('log')
+    ax.set_rticks([0.04, 0.05, 0.1, 0.2, 0.3, 0.4])
+    ax.set_xticklabels(['', '', '', '', '', '', '', ''])
+    if not rticks:
+        ax.set_yticklabels(['', '', '', '', '', ''], fontdict={'fontsize': 6})
+    else:
+        ax.set_yticklabels(['', '0.05', '0.1', '0.2', '0.3', '0.4 Hz'], fontdict={'fontsize': 6})
+    ax.yaxis.set_minor_formatter('')
+    if cb:
+        plt.colorbar(cf1)
+    return cf1
+
+def specplt2a(Sfa, dirs=None, freqs=None, cmap=cm.Spectral_r, ax = None, cb=True, rticks=True, regpolar=False):
+    """Sfa = spectral density function as a function of freq and dir
+    dirs = directions for Sfa data, can be omitted if Sfa contains this info (xarray)
+    freqs = same as dirs but are the frequencies
+    cmap = colormap used to plot the spectral intensity
+    """
+    if ax is None:
+        ax = plt.subplot(projection='polar')
+    if not regpolar:
+        ax.set_theta_direction(-1)
+        ax.set_theta_offset(np.pi / 2.0)
+    ax.set_rscale('log')
+    lev1a = np.array([0.01])
+    lev1b = np.arange(0.1, 0.55, 0.1)
+    lev1 = np.append(lev1a, lev1b)
+    if dirs is None:
+        dirs = Sfa.dir
+    if freqs is None:
+        freqs = Sfa.freq
+    if (dirs[-1] - dirs[0]) < 360:
+        dirs1a = np.ndarray((dirs.shape[0]+1))
+        Sfa1 = np.ndarray((Sfa.shape[0], Sfa.shape[1] + 1))
+        dirs1a[:-1] = dirs
+        dirs1a[-1] = dirs[0] + 360
+        Sfa1[:,:-1] = Sfa.copy()
+        Sfa1[:,-1] = Sfa[:,0].copy()
+        Sfa = Sfa1.copy()
+        dirs = dirs1a.copy()
+    Sfa = np.ma.where((Sfa < 0.01), np.ma.masked, Sfa)
+    cf1 = ax.pcolormesh(np.deg2rad(dirs), freqs, Sfa, cmap=cmap, vmin=0.01, vmax=0.5)
+    ax.set_ylim((0.05, 0.4))
+    ax.set_yscale('log')
+    ax.set_rticks([0.04, 0.05, 0.1, 0.2, 0.3, 0.4])
+    ax.set_xticklabels(['', '', '', '', '', '', '', ''])
+    if not rticks:
+        ax.set_yticklabels(['', '', '', '', '', ''], fontdict={'fontsize': 7})
+    else:
+        ax.set_yticklabels(['', '0.05', '0.1', '0.2', '0.3', '0.4 Hz'], fontdict={'fontsize': 7})
+    ax.yaxis.set_minor_formatter('')
+    if cb:
+        plt.colorbar(cf1)
+    return cf1
+
+def specplt2b(Sfa, dirs=None, freqs=None, cmap=cm.Spectral_r, ax = None, cb=True, rticks=True, regpolar=False):
+    """Sfa = spectral density function as a function of freq and dir
+    dirs = directions for Sfa data, can be omitted if Sfa contains this info (xarray)
+    freqs = same as dirs but are the frequencies
+    cmap = colormap used to plot the spectral intensity
+    """
+    if ax is None:
+        ax = plt.subplot(projection='polar')
+    if not regpolar:
+        ax.set_theta_direction(-1)
+        ax.set_theta_offset(np.pi / 2.0)
+    ax.set_rscale('log')
+    lev1a = np.array([0.01])
+    lev1b = np.arange(0.1, 0.51, 0.02)
+    lev1 = np.append(lev1a, lev1b)
+    if dirs is None:
+        dirs = Sfa.dir
+    if freqs is None:
+        freqs = Sfa.freq
+    if (dirs[-1] - dirs[0]) < 360:
+        dirs1a = np.ndarray((dirs.shape[0]+1))
+        Sfa1 = np.ndarray((Sfa.shape[0], Sfa.shape[1] + 1))
+        dirs1a[:-1] = dirs
+        dirs1a[-1] = dirs[0] + 360
+        Sfa1[:,:-1] = Sfa.copy()
+        Sfa1[:,-1] = Sfa[:,0].copy()
+        Sfa = Sfa1.copy()
+        dirs = dirs1a.copy()
+    cf1 = ax.contourf(np.deg2rad(dirs), freqs, Sfa, cmap=cm.Spectral_r, vmin=0.05, levels=lev1, extend='max')
+    ax.set_ylim((0.05, 0.4))
+    ax.set_yscale('log')
+    ax.set_rticks([0.04, 0.05, 0.1, 0.2, 0.3, 0.4])
+    ax.set_xticklabels(['', '', '', '', '', '', '', ''])
+    if not rticks:
+        ax.set_yticklabels(['', '', '', '', '', ''], fontdict={'fontsize': 7})
+    else:
+        ax.set_yticklabels(['', '0.05', '0.1', '0.2', '0.3', '0.4 Hz'], fontdict={'fontsize': 7})
+    ax.yaxis.set_minor_formatter('')
+    if cb:
+        plt.colorbar(cf1)
+    return cf1
+
+def specplt2c(Sfa, dirs=None, freqs=None, cmap=cm.Spectral_r, ax = None, cb=True, rticks=True, regpolar=False):
+    """Sfa = spectral density function as a function of freq and dir
+    dirs = directions for Sfa data, can be omitted if Sfa contains this info (xarray)
+    freqs = same as dirs but are the frequencies
+    cmap = colormap used to plot the spectral intensity
+    """
+    if ax is None:
+        ax = plt.subplot(projection='polar')
+    if not regpolar:
+        ax.set_theta_direction(-1)
+        ax.set_theta_offset(np.pi / 2.0)
+    ax.set_rscale('log')
+
+    lev1 = np.arange(0.01, 0.52, 0.02)
+
+    if dirs is None:
+        dirs = Sfa.dir
+    if freqs is None:
+        freqs = Sfa.freq
+    if (dirs[-1] - dirs[0]) < 360:
+        dirs1a = np.ndarray((dirs.shape[0]+1))
+        Sfa1 = np.ndarray((Sfa.shape[0], Sfa.shape[1] + 1))
+        dirs1a[:-1] = dirs
+        dirs1a[-1] = dirs[0] + 360
+        Sfa1[:,:-1] = Sfa.copy()
+        Sfa1[:,-1] = Sfa[:,0].copy()
+        Sfa = Sfa1.copy()
+        dirs = dirs1a.copy()
+    cf1 = ax.contourf(np.deg2rad(dirs), freqs, Sfa, cmap=cmap, vmin=0.05, levels=lev1, extend='max')
+    ax.set_ylim((0.05, 0.4))
+    ax.set_yscale('log')
+    ax.set_rticks([0.04, 0.05, 0.1, 0.2, 0.3, 0.4])
+    ax.set_xticklabels(['', '', '', '', '', '', '', ''])
+    if not rticks:
+        ax.set_yticklabels(['', '', '', '', '', ''], fontdict={'fontsize': 7})
+    else:
+        ax.set_yticklabels(['', '0.05', '0.1', '0.2', '0.3', '0.4 Hz'], fontdict={'fontsize': 7})
+    ax.yaxis.set_minor_formatter('')
+    if cb:
+        cbticks = arange(0.01,0.52,0.1)
+        plt.colorbar(cf1, ticks=cbticks)
+    return cf1
 
 def my_efth(ds1):
     import numpy as np
