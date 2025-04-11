@@ -220,7 +220,7 @@ def ndbcget(buoy, btype, time_frame, verbose=False):
         if verbose:
             print('multi-year timeframes not yet supported')
 
-    pack1 = ['9999',  yr1+'\.nc$', 'ncml$']
+    pack1 = ['9999',  yr1+'.nc$', 'ncml$']
 
     for str1 in pack1:
         if len(ddir1.Dataset[ddir1.Dataset.str.contains(str1)]) != 0:
@@ -1411,9 +1411,8 @@ def calc_m1_1d(spec1d, frequencies):
 
 def calc_peak_T(spec1d, frequencies):
     freqout = np.ndarray(spec1d.shape[0])
-    for f1 in range(freqout.size):
-        maxfilt = spec1d[f1] == spec1d[f1].max()
-        freqout[f1] = frequencies[maxfilt]
+    maxfilt = spec1d == spec1d.max()
+    freqout = frequencies[maxfilt]
     return 1.0 / freqout
 
 def specplt(Sfa, dirs=None, freqs=None, cmap=cm.Spectral_r, ax = None, cb=True, rticks=True):
