@@ -16,6 +16,13 @@ from netCDF4 import num2date as nn2d
 from matplotlib.dates import num2date as mpln2d
 from matplotlib.dates import date2num as mpld2n
 
+if hasattr(sig,'boxcar'):
+    windows = sig
+elif hasattr(sig,'windows'):
+    windows = sig.windows
+else:
+    raise Exception("can't find windowing function in sp.signal")
+
 global R_earth
 R_earth = 6371000.  # in meters
 
@@ -154,7 +161,7 @@ def blockave(x, blk, ax=0, weights=None):
     return out
 
 
-def run_mean_win_mskd(x, win=sig.boxcar(5), cutoff=0):
+def run_mean_win_mskd(x, win=windows.boxcar(5), cutoff=0):
     """An \'mcmath\' module function
     Calculates the running mean of (masked) array 'x' using a window 'win', which is a passed array;
     uses a boxcar of width 5 if 'win' is not specified.
@@ -191,7 +198,7 @@ def run_mean_win_mskd(x, win=sig.boxcar(5), cutoff=0):
     return [new_ind, new_arr]
 
 
-def run_mean_win_mskd2(x, win=sig.boxcar(5)):
+def run_mean_win_mskd2(x, win=windows.boxcar(5)):
     """An \'mcmath\' module function:
     Just calls 'np.convolve(x,win,mode='valid'), but also returns new index array for
     independent variable as well.
@@ -235,16 +242,16 @@ def rm_calc(x, win='b', npts=5, dtrnd=None):
 
     N = npts
     if (win == 'b'):
-        wind = sig.boxcar(N)
+        wind = windows.boxcar(N)
     elif (win == 'h'):
-        wind = sig.hanning(N)
+        wind = windows.hanning(N)
     elif (win == 'g'):
         sd = np.int(N * 0.16666666667)
-        wind = sig.gaussian(N, sd)
+        wind = windows.gaussian(N, sd)
     elif (win == 'p'):
-        wind = sig.parzen(N)
+        wind = windows.parzen(N)
     elif (win == 'm'):
-        wind = sig.hamming(N)
+        wind = windows.hamming(N)
     else:
         raise MCMathError("window type unknown!")
 
