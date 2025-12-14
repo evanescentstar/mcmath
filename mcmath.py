@@ -161,7 +161,11 @@ def blockave(x, blk, ax=0, weights=None):
     return out
 
 
+<<<<<<< Updated upstream
 def run_mean_win_mskd(x, win=windows.boxcar(5), cutoff=0):
+=======
+def run_mean_win_mskd(x, win=sig.windows.boxcar(5), cutoff=0):
+>>>>>>> Stashed changes
     """An \'mcmath\' module function
     Calculates the running mean of (masked) array 'x' using a window 'win', which is a passed array;
     uses a boxcar of width 5 if 'win' is not specified.
@@ -198,7 +202,11 @@ def run_mean_win_mskd(x, win=windows.boxcar(5), cutoff=0):
     return [new_ind, new_arr]
 
 
+<<<<<<< Updated upstream
 def run_mean_win_mskd2(x, win=windows.boxcar(5)):
+=======
+def run_mean_win_mskd2(x, win=sig.windows.boxcar(5)):
+>>>>>>> Stashed changes
     """An \'mcmath\' module function:
     Just calls 'np.convolve(x,win,mode='valid'), but also returns new index array for
     independent variable as well.
@@ -242,6 +250,7 @@ def rm_calc(x, win='b', npts=5, dtrnd=None):
 
     N = npts
     if (win == 'b'):
+<<<<<<< Updated upstream
         wind = windows.boxcar(N)
     elif (win == 'h'):
         wind = windows.hanning(N)
@@ -252,6 +261,18 @@ def rm_calc(x, win='b', npts=5, dtrnd=None):
         wind = windows.parzen(N)
     elif (win == 'm'):
         wind = windows.hamming(N)
+=======
+        wind = sig.windows.boxcar(N)
+    elif (win == 'h'):
+        wind = sig.windows.hanning(N)
+    elif (win == 'g'):
+        sd = np.int(N * 0.16666666667)
+        wind = sig.windows.gaussian(N, sd)
+    elif (win == 'p'):
+        wind = sig.windows.parzen(N)
+    elif (win == 'm'):
+        wind = sig.windows.hamming(N)
+>>>>>>> Stashed changes
     else:
         raise MCMathError("window type unknown!")
 
